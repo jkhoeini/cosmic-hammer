@@ -1,0 +1,75 @@
+
+(local {: contains?} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: atom : deref : update!} (require :lib.atom))
+(local fnl (require :fennel))
+
+(local loaded-spoons
+       (icollect [i spoon (ipairs (hs.spoons.list))] (. spoon :name)))
+
+(fn trim [s]
+  (-> s
+      (: :gsub "^%s+" "")
+      (: :gsub "%s+$" "")))
+
+(fn exec [& rst]
+  (hs.execute (table.concat rst " ") true))
+
+(when (not (contains? loaded-spoons "SpoonInstall"))
+    (let [tmpdir1 (exec "mktemp -d")
+          tmpdir (trim tmpdir1)
+          outfile (.. tmpdir "/SpoonInstall.spoon.zip")]
+      (exec "curl -fsSL https://github.com/Hammerspoon/Spoons/raw/master/Spoons/SpoonInstall.spoon.zip -o" outfile)
+      (exec "cd" tmpdir ";" "unzip SpoonInstall.spoon.zip -d ~/.hammerspoon/Spoons/")
+      (exec "rm -rf " tmpdir)))
+
+
+(hs.loadSpoon "SpoonInstall")
+
+(fn use-spoon [spoon-name opts]
+  (: spoon.SpoonInstall :andUse spoon-name opts))
+
+(use-spoon "Calendar" {})
+
+;; spoon.SpoonInstall:andUse("HCalendar", { start = true}))
+;; Pomodoro Menubar: spoon.SpoonInstall:andUse("Cherry", {})
+(use-spoon "CircleClock" {})
+(use-spoon "ClipboardTool" {:start true})
+(use-spoon "Emojis" {})
+
+;; Make setFrame behave more correctly. e.g. terminal windows)
+;; hs.window.setFrameCorrectness = true
+
+(fn toggle-emojis []
+  (if (spoon.Emojis.chooser:isVisible)
+    (spoon.Emojis.chooser:hide)
+    (spoon.Emojis.chooser:show)))
+
+
+(use-spoon "HSKeybindings" {})
+
+(local hammerspoonKeybindingsIsShown (atom false))
+
+(fn toggleShowKeybindings []
+  (update! hammerspoonKeybindingsIsShown #(not $1))
+  (if (deref hammerspoonKeybindingsIsShown)
+    (spoon.HSKeybindings:show)
+    (spoon.HSKeybindings:hide)))
+
+(use-spoon "KSheet" {})
+
+(set spoon.SpoonInstall.repos.PaperWM
+     {:url "https://github.com/mogenson/PaperWM.spoon"
+      :desc "PaperWM.spoon repository"
+      :branch "release"})
+
+(local paper-wm
+       (use-spoon
+        "PaperWM"
+        {:repo "PaperWM"
+         :config {:window_gap 35
+                  :screen_margin 16
+                  :window_ratios [0.3125 0.421875 0.625 0.843750]}
+         :fn #(: $1 :bindHotkeys (. $1 :default_hotkeys))
+         :start true}))
+
+{}
