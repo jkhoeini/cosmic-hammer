@@ -1,5 +1,5 @@
 
-(local {: global-filter} (require :lib.utils))
+(local {: apps-filter} (require :apps-filter))
 
 
 (fn calc-thumbnail-size []
@@ -11,7 +11,7 @@
 
 (var switcher
      (hs.window.switcher.new
-      (global-filter)
+      apps-filter
       {:textSize 12
        :showTitles false
        :showThumbnails false

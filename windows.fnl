@@ -1,6 +1,6 @@
 
 (local {: filter : get-in : count : concat : contains? : map : for-each : split} (require :lib.functional))
-(local {: global-filter} (require :lib.utils))
+(local {: apps-filter} (require :apps-filter))
 (local {: atom : deref : swap! : reset!} (require :lib.atom))
  
 
@@ -114,7 +114,7 @@
   (hs.grid.show))
 
 (fn jump-to-last-window []
-  (-> (global-filter)
+  (-> apps-filter
       (: :getWindows hs.window.filter.sortByFocusedLast)
       (. 2)
       (: :focus)))
