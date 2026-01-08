@@ -314,16 +314,6 @@
         :keys browser-keys
         :items browser-items})
 
-(local grammarly-config
-       {:key "Grammarly"
-        :items (concat
-                menu-items
-                [{:mods [:ctrl]
-                  :key :c
-                  :title "Return to Emacs"
-                  :action "grammarly:back-to-emacs"}])
-        :keys ""})
-
 (local hammerspoon-config
        {:key "Hammerspoon"
         :items (concat
@@ -388,7 +378,6 @@
        [brave-config
         chrome-config
         firefox-config
-        grammarly-config
         hammerspoon-config
         slack-config])
 
