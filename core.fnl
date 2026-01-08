@@ -6,7 +6,6 @@
 (local active-space-indicator (require :active-space-indicator))
 (local window-ops (require :window-ops))
 (local file-watchers (require :file-watchers))
-(local shortcuts (require :shortcuts))
 
 (set hs.hints.style :vimperator)
 (set hs.hints.showTitleThresh 4)

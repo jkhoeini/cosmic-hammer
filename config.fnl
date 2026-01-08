@@ -1,10 +1,8 @@
 
+(local core (require :io.gitlab.andreyorst.cljlib.core))
 (local windows (require :windows))
 (local emacs (require :emacs))
-(local {: concat} (require :lib.functional))
 
-(require-macros :lib.macros)
-(require-macros :lib.advice.macros)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -144,7 +142,7 @@
          :repeatable true}])
 
 (local window-bindings
-       (concat
+       (core.concat
         [return
          {:key :w
           :title "Last Window"
@@ -293,7 +291,7 @@
          :repeat true}])
 
 (local browser-items
-       (concat
+       (core.concat
         menu-items
         [{:key "'"
           :title "Edit with Emacs"
@@ -316,7 +314,7 @@
 
 (local hammerspoon-config
        {:key "Hammerspoon"
-        :items (concat
+        :items (core.concat
                 menu-items
                 [{:key :r
                   :title "Reload Console"

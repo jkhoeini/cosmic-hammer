@@ -1,12 +1,8 @@
 
-(local {: filter : get-in : count : concat : contains? : map : for-each : split} (require :lib.functional))
 (local {: apps-filter} (require :apps-filter))
-(local {: atom : deref : swap! : reset!} (require :lib.atom))
  
 
 (local canvas hs.canvas)
-
-(require-macros :lib.advice.macros)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; History
@@ -71,7 +67,7 @@
    using the ratio values
    This function is advisable."
   (let [frame (screen:fullFrame)
-        [w-percent h-percent] (split ":" ratio-str)
+        [w-percent h-percent] (hs.fnutils.split ratio-str ":")
         w-percent (/ (tonumber w-percent) 100)
         h-percent (/ (tonumber h-percent) 100)
         update {:w (* w-percent frame.w)
@@ -146,8 +142,7 @@
 
 (fn jump []
   "Displays hammerspoon's window jump UI"
-  (let [wns (->> (hs.window.allWindows)
-                 (filter allowed-app?))]
+  (let [wns (hs.fnutils.filter (hs.window.allWindows) allowed-app?)]
     (hs.hints.windowHints wns nil true)))
 
 
@@ -276,7 +271,7 @@
 (fn move-east [] (move-screen :moveOneScreenEast))
 (fn move-west [] (move-screen :moveOneScreenWest))
 
-(local screen-number-canvases (atom []))
+(local screen-number-canvases [])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Move to screen by number
@@ -288,7 +283,7 @@
    screen."
   (let [cs        (canvas.new {})
         font-size (/ (. (: screen :frame) :w) 10)]
-    (swap! screen-number-canvases (fn [t] (concat t [cs])))
+    (table.insert screen-number-canvases cs)
     (doto cs
       (: :frame (: screen :frame))
       (: :appendElements
@@ -306,17 +301,16 @@
   "Shows big number at the corner of each screen.
    To be used as for multi-monitor setups, to easily identify index of each screen."
   (let [ss (hs.screen.allScreens)]
-    (when (< 1 (count ss))
+    (when (< 1 (length ss))
       (each [idx display (ipairs (hs.screen.allScreens))]
         (show-display-number idx display)))))
 
 (fn hide-display-numbers []
   "Hides big numbers at the corner of each screen that are used for guidance in
    multi-monitor setups."
-  (for-each
-   (fn [c] (c:delete .4))
-   (deref screen-number-canvases))
-  (reset! screen-number-canvases []))
+  (each [i c (ipairs screen-number-canvases)]
+    (c:delete .4)
+    (tset screen-number-canvases i nil)))
 
 (fn monitor-item [screen i]
   "Creates a menu item to move the frontMost window to the specified screen index
@@ -332,8 +326,7 @@
   Takes a menu table-map
   Mutates the menu object to remove items with :group :monitor flags
   Returns mutated table-map"
-  (->> menu.items
-       (filter #(not (= (. $ :group) :monitor)))
+  (->> (hs.fnutils.filter menu.items #(not= (. $ :group) :monitor))
        (tset menu :items))
   menu)
 
@@ -342,9 +335,8 @@
   Takes a menu table-map and a table-list of hs.screens
   Mutates the menu.items by adding items for each monitor
   Returns mutated modal menu table-map"
-  (->> screens
-       (map monitor-item)
-       (concat menu.items)
+  (->> (hs.fnutils.imap screens monitor-item)
+       (hs.fnutils.concat menu.items)
        (tset menu :items))
   menu)
 

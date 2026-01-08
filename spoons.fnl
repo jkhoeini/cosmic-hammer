@@ -1,6 +1,5 @@
 
 (local {: contains?} (require :io.gitlab.andreyorst.cljlib.core))
-(local {: atom : deref : update!} (require :lib.atom))
 (local fnl (require :fennel))
 
 (local loaded-spoons
@@ -47,11 +46,11 @@
 
 (use-spoon "HSKeybindings" {})
 
-(local hammerspoonKeybindingsIsShown (atom false))
+(var hammerspoonKeybindingsIsShown false)
 
 (fn toggleShowKeybindings []
-  (update! hammerspoonKeybindingsIsShown #(not $1))
-  (if (deref hammerspoonKeybindingsIsShown)
+  (set hammerspoonKeybindingsIsShown (not hammerspoonKeybindingsIsShown))
+  (if hammerspoonKeybindingsIsShown
     (spoon.HSKeybindings:show)
     (spoon.HSKeybindings:hide)))
 

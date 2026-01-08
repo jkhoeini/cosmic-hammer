@@ -3,10 +3,6 @@ local spoons
 package.preload["spoons"] = package.preload["spoons"] or function(...)
   local _local_1541_ = require("io.gitlab.andreyorst.cljlib.core")
   local contains_3f = _local_1541_["contains?"]
-  local _local_1544_ = require("lib.atom")
-  local atom = _local_1544_.atom
-  local deref = _local_1544_.deref
-  local update_21 = _local_1544_["update!"]
   local fnl = require("fennel")
   local loaded_spoons
   do
@@ -54,13 +50,10 @@ package.preload["spoons"] = package.preload["spoons"] or function(...)
     end
   end
   use_spoon("HSKeybindings", {})
-  local hammerspoonKeybindingsIsShown = atom(false)
+  local hammerspoonKeybindingsIsShown = false
   local function toggleShowKeybindings()
-    local function _1548_(_241)
-      return not _241
-    end
-    update_21(hammerspoonKeybindingsIsShown, _1548_)
-    if deref(hammerspoonKeybindingsIsShown) then
+    hammerspoonKeybindingsIsShown = not hammerspoonKeybindingsIsShown
+    if hammerspoonKeybindingsIsShown then
       return spoon.HSKeybindings:show()
     else
       return spoon.HSKeybindings:hide()
@@ -69,10 +62,10 @@ package.preload["spoons"] = package.preload["spoons"] or function(...)
   use_spoon("KSheet", {})
   spoon.SpoonInstall.repos.PaperWM = {url = "https://github.com/mogenson/PaperWM.spoon", desc = "PaperWM.spoon repository", branch = "release"}
   local paper_wm
-  local function _1550_(_241)
+  local function _1546_(_241)
     return _241:bindHotkeys(_241.default_hotkeys)
   end
-  paper_wm = use_spoon("PaperWM", {repo = "PaperWM", config = {window_gap = 35, screen_margin = 16, window_ratios = {0.3125, 0.421875, 0.625, 0.84375}}, fn = _1550_, start = true})
+  paper_wm = use_spoon("PaperWM", {repo = "PaperWM", config = {window_gap = 35, screen_margin = 16, window_ratios = {0.3125, 0.421875, 0.625, 0.84375}}, fn = _1546_, start = true})
   return {}
 end
 package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab.andreyorst.cljlib.core"] or function(...)
@@ -10438,58 +10431,6 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   return {buffer = buffer, ["dropping-buffer"] = dropping_buffer, ["sliding-buffer"] = sliding_buffer, ["promise-buffer"] = promise_buffer, ["unblocking-buffer?"] = unblocking_buffer_3f, ["main-thread?"] = main_thread_3f, chan = chan, ["chan?"] = chan_3f, ["promise-chan"] = promise_chan, ["take!"] = take_21, ["<!!"] = _3c_21_21, ["<!"] = _3c_21, timeout = timeout, ["put!"] = put_21, [">!!"] = _3e_21_21, [">!"] = _3e_21, ["close!"] = close_21, ["go*"] = go_2a, ["alts!"] = alts_21, ["offer!"] = offer_21, ["poll!"] = poll_21, pipe = pipe, ["pipeline-async"] = pipeline_async, pipeline = pipeline, ["pipeline-async-unordered"] = pipeline_async_unordered, ["pipeline-unordered"] = pipeline_unordered, reduce = reduce, reduced = reduced, ["reduced?"] = reduced_3f, transduce = transduce, split = split, ["onto-chan!"] = onto_chan_21, ["to-chan!"] = to_chan_21, mult = mult, tap = tap, untap = untap, ["untap-all"] = untap_all, mix = mix, admix = admix, unmix = unmix, ["unmix-all"] = unmix_all, toggle = toggle, ["solo-mode"] = solo_mode, pub = pub, sub = sub, unsub = unsub, ["unsub-all"] = unsub_all, map = map, merge = merge, into = into, take = take, buffers = {FixedBuffer = FixedBuffer, SlidingBuffer = SlidingBuffer, DroppingBuffer = DroppingBuffer, PromiseBuffer = PromiseBuffer}, __VERSION = "1.6.42"}
 end
-package.preload["lib.atom"] = package.preload["lib.atom"] or function(...)
-  local function atom(initial)
-    return {state = initial, watchers = {}}
-  end
-  local function copy(tbl, copies)
-    local copies0 = (copies or {})
-    if (type(tbl) ~= "table") then
-      return tbl
-    elseif copies0[tbl] then
-      return copies0[tbl]
-    else
-      local copy_tbl = {}
-      copies0[tbl] = copy_tbl
-      for k, v in pairs(tbl) do
-        copy_tbl[copy(k, copies0)] = copy(v, copies0)
-      end
-      setmetatable(copy_tbl, copy(getmetatable(tbl), copies0))
-      return copy_tbl
-    end
-  end
-  local function deref(atom0)
-    return atom0.state
-  end
-  local function notify_watchers(atom0, next_value, prev_value)
-    local watchers = atom0.watchers
-    for _, f in pairs(watchers) do
-      f(next_value, prev_value)
-    end
-    return nil
-  end
-  local function add_watch(atom0, key, f)
-    atom0["watchers"][key] = f
-    return nil
-  end
-  local function remove_watch(atom0, key)
-    return table.remove(atom0.watchers, key)
-  end
-  local function swap_21(atom0, f, ...)
-    local prev_value = deref(atom0)
-    local next_value = f(copy(prev_value), table.unpack({...}))
-    atom0.state = next_value
-    notify_watchers(atom0, next_value, prev_value)
-    return atom0
-  end
-  local function reset_21(atom0, v)
-    local function _1543_()
-      return v
-    end
-    return swap_21(atom0, _1543_)
-  end
-  return {atom = atom, new = atom, deref = deref, ["notify-watchers"] = notify_watchers, ["add-watch"] = add_watch, ["remove-watch"] = remove_watch, ["reset!"] = reset_21, ["swap!"] = swap_21}
-end
 spoons = require("spoons")
 local active_space_indicator
 package.preload["active-space-indicator"] = package.preload["active-space-indicator"] or function(...)
@@ -10525,10 +10466,10 @@ package.preload["active-space-indicator"] = package.preload["active-space-indica
   local screen_watcher = hs.screen.watcher.new(handle_space_switch)
   screen_watcher:start()
   local expose = hs.expose.new()
-  local function _1552_()
+  local function _1548_()
     return expose:toggleShow()
   end
-  hs.hotkey.bind("ctrl-cmd", "e", "Expose", _1552_)
+  hs.hotkey.bind("ctrl-cmd", "e", "Expose", _1548_)
   return {}
 end
 active_space_indicator = require("active-space-indicator")
@@ -10604,21 +10545,21 @@ end
 window_ops = require("window-ops")
 local file_watchers
 package.preload["file-watchers"] = package.preload["file-watchers"] or function(...)
-  local _local_1554_ = require("io.gitlab.andreyorst.cljlib.core")
-  local mapv = _local_1554_.mapv
-  local assoc = _local_1554_.assoc
-  local _local_1576_ = require("events")
-  local dispatch_event = _local_1576_["dispatch-event"]
-  local tag_events = _local_1576_["tag-events"]
-  local _local_1583_ = require("behaviors")
-  local register_behavior = _local_1583_["register-behavior"]
+  local _local_1550_ = require("io.gitlab.andreyorst.cljlib.core")
+  local mapv = _local_1550_.mapv
+  local assoc = _local_1550_.assoc
+  local _local_1572_ = require("events")
+  local dispatch_event = _local_1572_["dispatch-event"]
+  local tag_events = _local_1572_["tag-events"]
+  local _local_1579_ = require("behaviors")
+  local register_behavior = _local_1579_["register-behavior"]
   tag_events("file-watchers.events/file-change", "file-watchers", {"file-watchers.tags/file-change"})
   local function handle_reload(files, attrs)
     local evs
-    local function _1584_(_241, _242)
+    local function _1580_(_241, _242)
       return assoc(_241, "file-path", _242)
     end
-    evs = mapv(_1584_, attrs, files)
+    evs = mapv(_1580_, attrs, files)
     for _, ev in ipairs(evs) do
       dispatch_event("file-watchers.events/file-change", "file-watchers", ev)
     end
@@ -10628,19 +10569,19 @@ package.preload["file-watchers"] = package.preload["file-watchers"] or function(
   __fnl_global__file_2dwatchers_2fpath_2dwatcher = my_watcher:start()
   local reloading_3f = false
   local reload = hs.timer.delayed.new(0.5, hs.reload)
-  local function _1585_(file_change_event)
+  local function _1581_(file_change_event)
     local path
     do
-      local t_1586_ = file_change_event
-      if (nil ~= t_1586_) then
-        t_1586_ = t_1586_["event-data"]
+      local t_1582_ = file_change_event
+      if (nil ~= t_1582_) then
+        t_1582_ = t_1582_["event-data"]
       else
       end
-      if (nil ~= t_1586_) then
-        t_1586_ = t_1586_["file-path"]
+      if (nil ~= t_1582_) then
+        t_1582_ = t_1582_["file-path"]
       else
       end
-      path = t_1586_
+      path = t_1582_
     end
     if (not reloading_3f and (nil ~= path) and (".hammerspoon/init.lua" == path:sub(-21))) then
       hs.alert("reloading")
@@ -10649,20 +10590,20 @@ package.preload["file-watchers"] = package.preload["file-watchers"] or function(
       return nil
     end
   end
-  register_behavior("file-watchers.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"file-watchers.tags/file-change"}, _1585_)
-  local function _1590_(file_change_event)
+  register_behavior("file-watchers.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"file-watchers.tags/file-change"}, _1581_)
+  local function _1586_(file_change_event)
     local path
     do
-      local t_1591_ = file_change_event
-      if (nil ~= t_1591_) then
-        t_1591_ = t_1591_["event-data"]
+      local t_1587_ = file_change_event
+      if (nil ~= t_1587_) then
+        t_1587_ = t_1587_["event-data"]
       else
       end
-      if (nil ~= t_1591_) then
-        t_1591_ = t_1591_["file-path"]
+      if (nil ~= t_1587_) then
+        t_1587_ = t_1587_["file-path"]
       else
       end
-      path = t_1591_
+      path = t_1587_
     end
     if ((nil ~= path) and (".fnl" == path:sub(-4))) then
       return print(hs.execute("./compile.sh", true))
@@ -10670,7 +10611,7 @@ package.preload["file-watchers"] = package.preload["file-watchers"] or function(
       return nil
     end
   end
-  register_behavior("file-watchers.behaviors/hammerspoon-compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"file-watchers.tags/file-change"}, _1590_)
+  register_behavior("file-watchers.behaviors/hammerspoon-compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"file-watchers.tags/file-change"}, _1586_)
   return {}
 end
 package.preload["events"] = package.preload["events"] or function(...)
@@ -10682,42 +10623,42 @@ package.preload["events"] = package.preload["events"] or function(...)
   local get_event_tags
   do
     local pairs_106_auto
-    local function _1555_(t_107_auto)
-      local case_1556_ = getmetatable(t_107_auto)
-      if ((_G.type(case_1556_) == "table") and (nil ~= case_1556_.__pairs)) then
-        local p_108_auto = case_1556_.__pairs
+    local function _1551_(t_107_auto)
+      local case_1552_ = getmetatable(t_107_auto)
+      if ((_G.type(case_1552_) == "table") and (nil ~= case_1552_.__pairs)) then
+        local p_108_auto = case_1552_.__pairs
         return p_108_auto(t_107_auto)
       else
-        local _ = case_1556_
+        local _ = case_1552_
         return pairs(t_107_auto)
       end
     end
-    pairs_106_auto = _1555_
-    local _let_1558_ = require("io.gitlab.andreyorst.cljlib.core")
-    local eq_109_auto = _let_1558_.eq
-    local function _1559_(t_107_auto, ...)
+    pairs_106_auto = _1551_
+    local _let_1554_ = require("io.gitlab.andreyorst.cljlib.core")
+    local eq_109_auto = _let_1554_.eq
+    local function _1555_(t_107_auto, ...)
       local dispatch_value_114_auto
-      local function _1560_(ev)
+      local function _1556_(ev)
         return {ev["event-name"], ev.origin}
       end
-      dispatch_value_114_auto = _1560_(...)
+      dispatch_value_114_auto = _1556_(...)
       local view_115_auto
       do
-        local case_1561_, case_1562_ = pcall(require, "fennel")
-        if ((case_1561_ == true) and (nil ~= case_1562_)) then
-          local fennel_116_auto = case_1562_
-          local function _1563_(_241)
+        local case_1557_, case_1558_ = pcall(require, "fennel")
+        if ((case_1557_ == true) and (nil ~= case_1558_)) then
+          local fennel_116_auto = case_1558_
+          local function _1559_(_241)
             return fennel_116_auto.view(_241, {["one-line"] = true})
           end
-          view_115_auto = _1563_
+          view_115_auto = _1559_
         else
-          local _ = case_1561_
+          local _ = case_1557_
           view_115_auto = tostring
         end
       end
       return (t_107_auto[dispatch_value_114_auto] or t_107_auto[(({}).default or "default")] or error(("No method in multimethod '" .. "get-event-tags" .. "' for dispatch value: " .. view_115_auto(dispatch_value_114_auto)), 2))(...)
     end
-    local function _1565_(t_107_auto, key_110_auto)
+    local function _1561_(t_107_auto, key_110_auto)
       local res_111_auto = nil
       for k_112_auto, v_113_auto in pairs_106_auto(t_107_auto) do
         if res_111_auto then break end
@@ -10729,58 +10670,58 @@ package.preload["events"] = package.preload["events"] or function(...)
       end
       return res_111_auto
     end
-    get_event_tags = setmetatable({}, {__call = _1559_, __fennelview = tostring, __index = _1565_, __name = ("multifn " .. "get-event-tags"), ["cljlib/type"] = "multifn"})
+    get_event_tags = setmetatable({}, {__call = _1555_, __fennelview = tostring, __index = _1561_, __name = ("multifn " .. "get-event-tags"), ["cljlib/type"] = "multifn"})
   end
   do
     local dispatch_118_auto = "default"
     local multifn_119_auto = get_event_tags
-    local and_1568_ = not multifn_119_auto[dispatch_118_auto]
-    if and_1568_ then
-      local function fn_1567_(...)
+    local and_1564_ = not multifn_119_auto[dispatch_118_auto]
+    if and_1564_ then
+      local function fn_1563_(...)
         local _ = ...
         do
           local cnt_54_auto = select("#", ...)
           if (1 ~= cnt_54_auto) then
-            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1567_"))
+            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1563_"))
           else
           end
         end
         return {"event/unknown"}
       end
-      multifn_119_auto[dispatch_118_auto] = fn_1567_
-      and_1568_ = multifn_119_auto
+      multifn_119_auto[dispatch_118_auto] = fn_1563_
+      and_1564_ = multifn_119_auto
     end
-    do local _ = and_1568_ end
+    do local _ = and_1564_ end
   end
   local function tag_events(ev_name, orig, tags)
     local dispatch_118_auto = {ev_name, orig}
     local multifn_119_auto = get_event_tags
-    local and_1571_ = not multifn_119_auto[dispatch_118_auto]
-    if and_1571_ then
-      local function fn_1570_(...)
+    local and_1567_ = not multifn_119_auto[dispatch_118_auto]
+    if and_1567_ then
+      local function fn_1566_(...)
         local _ = ...
         do
           local cnt_54_auto = select("#", ...)
           if (1 ~= cnt_54_auto) then
-            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1570_"))
+            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1566_"))
           else
           end
         end
         return tags
       end
-      multifn_119_auto[dispatch_118_auto] = fn_1570_
-      and_1571_ = multifn_119_auto
+      multifn_119_auto[dispatch_118_auto] = fn_1566_
+      and_1567_ = multifn_119_auto
     end
-    return and_1571_
+    return and_1567_
   end
   local function add_event_handler(handler)
     local idx = (1 + #event_handlers)
     table.insert(event_handlers, handler)
-    local function _1573_()
+    local function _1569_()
       event_handlers[idx] = nil
       return nil
     end
-    return _1573_
+    return _1569_
   end
   local function process_events()
     processing_3f = true
@@ -10806,20 +10747,20 @@ package.preload["events"] = package.preload["events"] or function(...)
       return nil
     end
   end
-  local function _1575_(event)
+  local function _1571_(event)
     return print("got event", fnl.view(event))
   end
-  add_event_handler(_1575_)
+  add_event_handler(_1571_)
   return {["tag-events"] = tag_events, ["add-event-handler"] = add_event_handler, ["dispatch-event"] = dispatch_event}
 end
 package.preload["behaviors"] = package.preload["behaviors"] or function(...)
-  local _local_1577_ = require("io.gitlab.andreyorst.cljlib.core")
-  local mapcat = _local_1577_.mapcat
-  local into = _local_1577_.into
-  local mapv = _local_1577_.mapv
-  local hash_set = _local_1577_["hash-set"]
-  local _local_1578_ = require("events")
-  local add_event_handler = _local_1578_["add-event-handler"]
+  local _local_1573_ = require("io.gitlab.andreyorst.cljlib.core")
+  local mapcat = _local_1573_.mapcat
+  local into = _local_1573_.into
+  local mapv = _local_1573_.mapv
+  local hash_set = _local_1573_["hash-set"]
+  local _local_1574_ = require("events")
+  local add_event_handler = _local_1574_["add-event-handler"]
   --[[ example-behavior {:description "Some example behavior" :enabled? true :fn (fn [event] (print (fnl.view event))) :name "example-behavior" :respond-to ["example-tag"]} ]]
   local behaviors_register = {}
   local tag_to_behavior_map = {}
@@ -10836,15 +10777,15 @@ package.preload["behaviors"] = package.preload["behaviors"] or function(...)
     return nil
   end
   local function get_behaviors_for_tags(tags)
-    local function _1580_(_241)
+    local function _1576_(_241)
       return behaviors_register[_241]
     end
-    local function _1581_(_241)
+    local function _1577_(_241)
       return tag_to_behavior_map[_241]
     end
-    return mapv(_1580_, into(hash_set(), mapcat(_1581_, tags)))
+    return mapv(_1576_, into(hash_set(), mapcat(_1577_, tags)))
   end
-  local function _1582_(event)
+  local function _1578_(event)
     local bs = get_behaviors_for_tags(event["event-tags"])
     for _, behavior in pairs(bs) do
       local f = behavior.fn
@@ -10852,330 +10793,10 @@ package.preload["behaviors"] = package.preload["behaviors"] or function(...)
     end
     return nil
   end
-  add_event_handler(_1582_)
+  add_event_handler(_1578_)
   return {["register-behavior"] = register_behavior}
 end
 file_watchers = require("file-watchers")
-local shortcuts
-package.preload["shortcuts"] = package.preload["shortcuts"] or function(...)
-  local _local_1627_ = require("lib.bind")
-  local bind_global_keys = _local_1627_["bind-global-keys"]
-  local unbind_global_keys = _local_1627_["unbind-global-keys"]
-  local bindings = bind_global_keys({{mods = {"alt"}, key = "space", action = "lib.modal:activate-modal"}, {mods = {"cmd", "alt"}, key = "n", action = "app-switcher:next-app"}, {mods = {"cmd", "alt"}, key = "p", action = "app-switcher:prev-app"}, {mods = {"cmd", "ctrl"}, key = "`", action = hs.toggleConsole}, {mods = {"cmd", "ctrl"}, key = "o", action = "emacs:edit-with-emacs"}})
-  local function unbind_keys()
-    return unbind_global_keys(bindings)
-  end
-  return {["unbind-keys"] = unbind_keys}
-end
-package.preload["lib.bind"] = package.preload["lib.bind"] or function(...)
-  local _local_1616_ = require("lib.functional")
-  local contains_3f = _local_1616_["contains?"]
-  local split = _local_1616_.split
-  local log = hs.logger.new("bind.fnl", "debug")
-  local function do_action(action, args)
-    local _let_1617_ = split(":", action)
-    local file = _let_1617_[1]
-    local fn_name = _let_1617_[2]
-    local module = require(file)
-    local f = module[fn_name]
-    if f then
-      return f(table.unpack((args or {})))
-    else
-      return log.wf("Could not dispatch action %s: Function \"%s\" was not found in module \"%s\".\nEnsure the correct action is referenced in config.fnl.", action, fn_name, file)
-    end
-  end
-  local function create_action_fn(action)
-    local function _1619_(...)
-      return do_action(action, {...})
-    end
-    return _1619_
-  end
-  local function action__3efn(action)
-    local case_1620_ = type(action)
-    if (case_1620_ == "function") then
-      return action
-    elseif (case_1620_ == "string") then
-      return create_action_fn(action)
-    else
-      local _ = case_1620_
-      log.wf("Could not create action handler for %s", hs.inspect(action))
-      local function _1621_()
-        return true
-      end
-      return _1621_
-    end
-  end
-  local function bind_keys(items)
-    local modal = hs.hotkey.modal.new({}, nil)
-    for _, item in ipairs(items) do
-      local key = item.key
-      local mods = item.mods
-      local action = item.action
-      local _repeat = item["repeat"]
-      local mods0 = (mods or {})
-      local action_fn = action__3efn(action)
-      if _repeat then
-        modal:bind(mods0, key, action_fn, nil, action_fn)
-      else
-        modal:bind(mods0, key, nil, action_fn)
-      end
-    end
-    modal:enter()
-    local function destroy_bindings()
-      if modal then
-        modal:exit()
-        return modal:delete()
-      else
-        return nil
-      end
-    end
-    return destroy_bindings
-  end
-  local function bind_global_keys(items)
-    local tbl_26_ = {}
-    local i_27_ = 0
-    for _, item in ipairs(items) do
-      local val_28_
-      do
-        local key = item.key
-        local mods = (item.mods or {})
-        local action_fn = action__3efn(item.action)
-        local binding = hs.hotkey.bind(mods, key, action_fn)
-        local function _1625_()
-          return binding:delete()
-        end
-        val_28_ = _1625_
-      end
-      if (nil ~= val_28_) then
-        i_27_ = (i_27_ + 1)
-        tbl_26_[i_27_] = val_28_
-      else
-      end
-    end
-    return tbl_26_
-  end
-  local function unbind_global_keys(bindings)
-    for _, unbind in ipairs(bindings) do
-      unbind()
-    end
-    return nil
-  end
-  return {["action->fn"] = action__3efn, ["bind-keys"] = bind_keys, ["bind-global-keys"] = bind_global_keys, ["unbind-global-keys"] = unbind_global_keys, ["do-action"] = do_action}
-end
-package.preload["lib.functional"] = package.preload["lib.functional"] or function(...)
-  local fu = hs.fnutils
-  local function call_when(f, ...)
-    if (f and (type(f) == "function")) then
-      return f(...)
-    else
-      return nil
-    end
-  end
-  local function compose(...)
-    local fs = {...}
-    local total = #fs
-    local function _1596_(v)
-      local res = v
-      for i = 0, (total - 1) do
-        local f = fs[(total - i)]
-        res = f(res)
-      end
-      return res
-    end
-    return _1596_
-  end
-  local function contains_3f(x, xs)
-    return (xs and fu.contains(xs, x))
-  end
-  local function find(f, tbl)
-    return fu.find(tbl, f)
-  end
-  local function get(prop_name, tbl)
-    if tbl then
-      return prop_name[tbl]
-    else
-      local function _1597_(tbl0)
-        return tbl0[prop_name]
-      end
-      return _1597_
-    end
-  end
-  local function has_some_3f(list)
-    return (list and (0 < #list))
-  end
-  local function identity(x)
-    return x
-  end
-  local function join(sep, list)
-    return table.concat(list, sep)
-  end
-  local function first(list)
-    return list[1]
-  end
-  local function last(list)
-    return list[#list]
-  end
-  local function logf(...)
-    local prefixes = {...}
-    local function _1599_(x)
-      return print(table.unpack(prefixes), hs.inspect(x))
-    end
-    return _1599_
-  end
-  local function noop()
-    return nil
-  end
-  local function range(start, _end)
-    local t = {}
-    for i = start, _end do
-      table.insert(t, i)
-    end
-    return t
-  end
-  local function slice_end_idx(end_pos, list)
-    if (end_pos < 0) then
-      return (#list + end_pos)
-    else
-      return end_pos
-    end
-  end
-  local function slice_start_end(start, _end, list)
-    local end_2b
-    if (_end < 0) then
-      end_2b = (#list + _end)
-    else
-      end_2b = _end
-    end
-    local sliced = {}
-    for i = start, end_2b do
-      table.insert(sliced, list[i])
-    end
-    return sliced
-  end
-  local function slice_start(start, list)
-    local _1602_
-    if (start < 0) then
-      _1602_ = (#list + start)
-    else
-      _1602_ = start
-    end
-    return slice_start_end(_1602_, #list, list)
-  end
-  local function slice(start, _end, list)
-    if ((type(_end) == "table") and not list) then
-      return slice_start(start, _end)
-    else
-      return slice_start_end(start, _end, list)
-    end
-  end
-  local function split(separator, str)
-    return fu.split(str, separator)
-  end
-  local function tap(f, x, ...)
-    f(x, table.unpack({...}))
-    return x
-  end
-  local function count(tbl)
-    local ct = 0
-    local function _1605_()
-      ct = (ct + 1)
-      return nil
-    end
-    fu.each(tbl, _1605_)
-    return ct
-  end
-  local function seq_3f(tbl)
-    return (tbl[1] ~= nil)
-  end
-  local function seq(tbl)
-    if seq_3f(tbl) then
-      return ipairs(tbl)
-    else
-      return pairs(tbl)
-    end
-  end
-  local function reduce(f, acc, tbl)
-    local result = acc
-    for k, v in seq(tbl) do
-      result = f(result, v, k)
-    end
-    return result
-  end
-  local function for_each(f, tbl)
-    return fu.each(tbl, f)
-  end
-  local function get_in(paths, tbl)
-    local function _1607_(tbl0, path)
-      if (nil ~= tbl0) then
-        return tbl0[path]
-      else
-        return nil
-      end
-    end
-    return reduce(_1607_, tbl, paths)
-  end
-  local function map(f, tbl)
-    local function _1609_(new_tbl, v, k)
-      table.insert(new_tbl, f(v, k))
-      return new_tbl
-    end
-    return reduce(_1609_, {}, tbl)
-  end
-  local function merge(...)
-    local tbls = {...}
-    local function merger(merged, tbl)
-      for k, v in pairs(tbl) do
-        merged[k] = v
-      end
-      return merged
-    end
-    return reduce(merger, {}, tbls)
-  end
-  local function filter(f, tbl)
-    local function _1610_(xs, v, k)
-      if f(v, k) then
-        table.insert(xs, v)
-      else
-      end
-      return xs
-    end
-    return reduce(_1610_, {}, tbl)
-  end
-  local function concat(...)
-    local function _1612_(cat, tbl)
-      for _, v in ipairs(tbl) do
-        table.insert(cat, v)
-      end
-      return cat
-    end
-    return reduce(_1612_, {}, {...})
-  end
-  local function some(f, tbl)
-    local filtered = filter(f, tbl)
-    return (1 <= #filtered)
-  end
-  local function conj(tbl, e)
-    return concat(tbl, {e})
-  end
-  local function butlast(tbl)
-    return slice(1, -1, tbl)
-  end
-  local function eq_3f(l1, l2)
-    local _1613_ = type(l2)
-    if (((type(l1) == _1613_) and (_1613_ == "table")) and (#l1 == #l2)) then
-      local function _1614_(v)
-        return contains_3f(v, l2)
-      end
-      return fu.every(l1, _1614_)
-    elseif (type(l1) == type(l2)) then
-      return (l1 == l2)
-    else
-      return false
-    end
-  end
-  return {butlast = butlast, ["call-when"] = call_when, compose = compose, concat = concat, conj = conj, ["contains?"] = contains_3f, count = count, ["eq?"] = eq_3f, filter = filter, find = find, first = first, ["for-each"] = for_each, get = get, ["get-in"] = get_in, ["has-some?"] = has_some_3f, identity = identity, join = join, last = last, logf = logf, map = map, merge = merge, noop = noop, reduce = reduce, seq = seq, ["seq?"] = seq_3f, some = some, slice = slice, split = split, tap = tap}
-end
-shortcuts = require("shortcuts")
 hs.hints.style = "vimperator"
 hs.hints.showTitleThresh = 4
 hs.hints.titleMaxSize = 10
