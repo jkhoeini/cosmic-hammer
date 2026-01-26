@@ -28,8 +28,8 @@
 (fn handle-space-switch [& rest]
   (update-menubar))
 
-;; Create menubar item
-(set menubar (hs.menubar.new))
+;; Create menubar item with autosave name so macOS remembers its position
+(set menubar (hs.menubar.new true "cosmicHammerSpaceIndicator"))
 (when menubar
   (menubar:setTitle (get-active-spaces-str)))
 
