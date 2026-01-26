@@ -1,5 +1,6 @@
 
 (local {: apps-filter} (require :apps-filter))
+(local notify (require :notify))
  
 
 (local canvas hs.canvas)
@@ -36,8 +37,8 @@
             (do
               (win:setFrame el)
               (when (< 0 num-of-undos)
-                (hs.alert (.. num-of-undos " undo steps available"))))
-            (hs.alert "nothing to undo"))))))
+                (notify.info (.. num-of-undos " undo steps available"))))
+            (notify.info "Nothing to undo"))))))
 
 (fn undo [] (history:pop))
 

@@ -1,187 +1,10 @@
 hs.console.clearConsole()
-local notify
-package.preload["notify"] = package.preload["notify"] or function(...)
-  local notification_duration = 30
-  local margin = 64
-  local stack_gap = 8
-  local icons_dir = (os.getenv("HOME") .. "/.hammerspoon/icons")
-  local icon_paths = {info = (icons_dir .. "/info.png"), warn = (icons_dir .. "/warn.png"), error = (icons_dir .. "/error.png")}
-  local header_colors = {info = {red = 0.2, green = 0.4, blue = 0.6, alpha = 1}, warn = {red = 0.7, green = 0.5, blue = 0.1, alpha = 1}, error = {red = 0.7, green = 0.2, blue = 0.2, alpha = 1}}
-  local active_notifications = {}
-  local function move_notification_up(notif, offset)
-    for _, drawing in ipairs(notif.drawings) do
-      local current_frame = drawing:frame()
-      local new_y = (current_frame.y - offset)
-      drawing:setFrame({x = current_frame.x, y = new_y, w = current_frame.w, h = current_frame.h})
-    end
-    return nil
-  end
-  local function push_existing_notifications_up(new_height)
-    local offset = (new_height + stack_gap)
-    for _, notif in ipairs(active_notifications) do
-      move_notification_up(notif, offset)
-    end
-    return nil
-  end
-  local function remove_notification(notif)
-    if notif.timer then
-      notif.timer:stop()
-    else
-    end
-    for _, drawing in ipairs(notif.drawings) do
-      drawing:delete()
-    end
-    local idx = nil
-    for i, n in ipairs(active_notifications) do
-      if (n == notif) then
-        idx = i
-      else
-      end
-    end
-    if idx then
-      return table.remove(active_notifications, idx)
-    else
-      return nil
-    end
-  end
-  local function show_notification(title, type, message)
-    local screen = hs.screen.mainScreen()
-    local frame = screen:frame()
-    local icon_path = icon_paths[type]
-    local icon_image = hs.image.imageFromPath(icon_path)
-    local header_color = (header_colors[type] or header_colors.info)
-    local title_font = "SF Pro Text Bold"
-    local message_font = "SF Pro Text"
-    local font_size = 14
-    local outer_padding = 8
-    local section_gap = 8
-    local inner_padding = 8
-    local icon_size = 18
-    local icon_padding = 10
-    local notif_width = 300
-    local header_height = 36
-    local message_padding = 12
-    local close_btn_size = 18
-    local close_btn_margin = 8
-    local message_size = hs.drawing.getTextDrawingSize(message, {font = message_font, size = font_size})
-    local wrapped_lines = math.ceil((message_size.w / (notif_width - (message_padding * 2) - (outer_padding * 2))))
-    local actual_message_height = (message_size.h * math.max(1, wrapped_lines))
-    local message_height = (actual_message_height + (message_padding * 2))
-    local total_height = ((outer_padding * 2) + header_height + section_gap + message_height)
-    local x = ((frame.x + frame.w) - notif_width - margin)
-    local y = ((frame.y + frame.h) - total_height - margin - 50)
-    push_existing_notifications_up(total_height)
-    local drawings = {}
-    local container_rect = hs.drawing.rectangle({x = x, y = y, w = notif_width, h = total_height})
-    local header_rect = hs.drawing.rectangle({x = (x + outer_padding), y = (y + outer_padding), w = (notif_width - (outer_padding * 2)), h = header_height})
-    local message_rect = hs.drawing.rectangle({x = (x + outer_padding), y = (y + outer_padding + header_height + section_gap), w = (notif_width - (outer_padding * 2)), h = message_height})
-    local icon_drawing
-    if icon_image then
-      icon_drawing = hs.drawing.image({x = (x + outer_padding + icon_padding), y = (y + outer_padding + ((header_height - icon_size) / 2)), w = icon_size, h = icon_size}, icon_image)
-    else
-      icon_drawing = nil
-    end
-    local text_height = 18
-    local text_x_offset
-    if icon_image then
-      text_x_offset = (outer_padding + icon_padding + icon_size + 8)
-    else
-      text_x_offset = (outer_padding + inner_padding)
-    end
-    local header_text = hs.drawing.text({x = (x + text_x_offset), y = (y + outer_padding + ((header_height - text_height) / 2)), w = (notif_width - text_x_offset - inner_padding - close_btn_size - close_btn_margin - outer_padding), h = text_height}, title)
-    local message_text = hs.drawing.text({x = (x + outer_padding + message_padding), y = (y + outer_padding + header_height + section_gap + message_padding), w = (notif_width - (outer_padding * 2) - (message_padding * 2)), h = actual_message_height}, message)
-    local close_btn_x = ((x + notif_width) - close_btn_size - close_btn_margin - outer_padding)
-    local close_btn_y = (y + outer_padding + ((header_height - close_btn_size) / 2))
-    local close_btn = hs.drawing.text({x = close_btn_x, y = close_btn_y, w = close_btn_size, h = close_btn_size}, "\195\151")
-    container_rect:setFill(true)
-    container_rect:setFillColor({white = 0.12, alpha = 0.98})
-    container_rect:setStroke(true)
-    container_rect:setStrokeWidth(1)
-    container_rect:setStrokeColor({white = 0.25, alpha = 1})
-    container_rect:setRoundedRectRadii(12, 12)
-    header_rect:setFill(true)
-    header_rect:setFillColor(header_color)
-    header_rect:setStroke(false)
-    header_rect:setRoundedRectRadii(8, 8)
-    message_rect:setFill(true)
-    message_rect:setFillColor({white = 0.06, alpha = 1})
-    message_rect:setStroke(false)
-    message_rect:setRoundedRectRadii(8, 8)
-    header_text:setTextFont(title_font)
-    header_text:setTextSize(14)
-    header_text:setTextColor({white = 1, alpha = 1})
-    message_text:setTextFont(message_font)
-    message_text:setTextSize(font_size)
-    message_text:setTextColor({white = 0.9, alpha = 1})
-    close_btn:setTextFont("SF Pro Text")
-    close_btn:setTextSize(16)
-    close_btn:setTextColor({white = 1, alpha = 0.6})
-    container_rect:show()
-    header_rect:show()
-    message_rect:show()
-    if icon_drawing then
-      icon_drawing:show()
-    else
-    end
-    header_text:show()
-    message_text:show()
-    close_btn:show()
-    table.insert(drawings, container_rect)
-    table.insert(drawings, header_rect)
-    table.insert(drawings, message_rect)
-    if icon_drawing then
-      table.insert(drawings, icon_drawing)
-    else
-    end
-    table.insert(drawings, header_text)
-    table.insert(drawings, message_text)
-    table.insert(drawings, close_btn)
-    local notif = {drawings = drawings, height = total_height, timer = nil}
-    close_btn:setBehaviorByLabels({"canvasClickable"})
-    local function _8_()
-      return remove_notification(notif)
-    end
-    close_btn:setClickCallback(_8_)
-    local function _9_()
-      return remove_notification(notif)
-    end
-    notif["timer"] = hs.timer.doAfter(notification_duration, _9_)
-    return table.insert(active_notifications, notif)
-  end
-  local function notify(title, type, message)
-    return show_notification(title, type, message)
-  end
-  local function info(message)
-    return notify("Cosmic Hammer", "info", message)
-  end
-  local function warn(message)
-    return notify("Cosmic Hammer", "warn", message)
-  end
-  local function error(message)
-    return notify("Cosmic Hammer", "error", message)
-  end
-  local function close_all()
-    for _, notif in ipairs(active_notifications) do
-      if notif.timer then
-        notif.timer:stop()
-      else
-      end
-      for _0, drawing in ipairs(notif.drawings) do
-        drawing:delete()
-      end
-    end
-    active_notifications = {}
-    return nil
-  end
-  return {info = info, warn = warn, error = error, ["close-all"] = close_all}
-end
-notify = require("notify")
-_G.my_notif = notify
-notify.warn("Reload Started")
+hs.ipc.cliInstall()
+hs.window.animationDuration = 0.0
 local spoons
 package.preload["spoons"] = package.preload["spoons"] or function(...)
-  local _local_1551_ = require("io.gitlab.andreyorst.cljlib.core")
-  local contains_3f = _local_1551_["contains?"]
+  local _local_1541_ = require("io.gitlab.andreyorst.cljlib.core")
+  local contains_3f = _local_1541_["contains?"]
   local fnl = require("fennel")
   local loaded_spoons
   do
@@ -241,14 +64,14 @@ package.preload["spoons"] = package.preload["spoons"] or function(...)
   use_spoon("KSheet", {})
   spoon.SpoonInstall.repos.PaperWM = {url = "https://github.com/mogenson/PaperWM.spoon", desc = "PaperWM.spoon repository", branch = "release"}
   local paper_wm
-  local function _1556_(_241)
+  local function _1546_(_241)
     return _241:bindHotkeys(_241.default_hotkeys)
   end
-  paper_wm = use_spoon("PaperWM", {repo = "PaperWM", config = {window_gap = 35, screen_margin = 16, window_ratios = {0.3125, 0.421875, 0.625, 0.84375}}, fn = _1556_, start = true})
+  paper_wm = use_spoon("PaperWM", {repo = "PaperWM", config = {window_gap = 35, screen_margin = 16, window_ratios = {0.3125, 0.421875, 0.625, 0.84375}}, fn = _1546_, start = true})
   return {}
 end
 package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab.andreyorst.cljlib.core"] or function(...)
-  local function _11_()
+  local function _1_()
     return "#<namespace: core>"
   end
   --[[ "MIT License
@@ -272,13 +95,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   LIABILITY‚ WHETHER IN AN ACTION OF CONTRACT‚ TORT OR OTHERWISE‚ ARISING FROM‚
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE." ]]
-  local _local_848_ = {setmetatable({}, {__fennelview = _11_, __name = "namespace"}), require("io.gitlab.andreyorst.lazy-seq"), require("io.gitlab.andreyorst.itable"), require("io.gitlab.andreyorst.reduced"), require("io.gitlab.andreyorst.inst"), require("io.gitlab.andreyorst.async")}, nil
-  local core = _local_848_[1]
-  local lazy = _local_848_[2]
-  local itable = _local_848_[3]
-  local rdc = _local_848_[4]
-  local lua_inst = _local_848_[5]
-  local a = _local_848_[6]
+  local _local_838_ = {setmetatable({}, {__fennelview = _1_, __name = "namespace"}), require("io.gitlab.andreyorst.lazy-seq"), require("io.gitlab.andreyorst.itable"), require("io.gitlab.andreyorst.reduced"), require("io.gitlab.andreyorst.inst"), require("io.gitlab.andreyorst.async")}, nil
+  local core = _local_838_[1]
+  local lazy = _local_838_[2]
+  local itable = _local_838_[3]
+  local rdc = _local_838_[4]
+  local lua_inst = _local_838_[5]
+  local a = _local_838_[6]
   core.__VERSION = "0.1.239"
   local function unpack_2a(x, ...)
     if core["seq?"](x) then
@@ -293,32 +116,32 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
     return tmp_9_
   end
   local function pairs_2a(t)
-    local case_850_ = getmetatable(t)
-    if ((_G.type(case_850_) == "table") and (nil ~= case_850_.__pairs)) then
-      local p = case_850_.__pairs
+    local case_840_ = getmetatable(t)
+    if ((_G.type(case_840_) == "table") and (nil ~= case_840_.__pairs)) then
+      local p = case_840_.__pairs
       return p(t)
     else
-      local _ = case_850_
+      local _ = case_840_
       return pairs(t)
     end
   end
   local function ipairs_2a(t)
-    local case_852_ = getmetatable(t)
-    if ((_G.type(case_852_) == "table") and (nil ~= case_852_.__ipairs)) then
-      local i = case_852_.__ipairs
+    local case_842_ = getmetatable(t)
+    if ((_G.type(case_842_) == "table") and (nil ~= case_842_.__ipairs)) then
+      local i = case_842_.__ipairs
       return i(t)
     else
-      local _ = case_852_
+      local _ = case_842_
       return ipairs(t)
     end
   end
   local function length_2a(t)
-    local case_854_ = getmetatable(t)
-    if ((_G.type(case_854_) == "table") and (nil ~= case_854_.__len)) then
-      local l = case_854_.__len
+    local case_844_ = getmetatable(t)
+    if ((_G.type(case_844_) == "table") and (nil ~= case_844_.__len)) then
+      local l = case_844_.__len
       return l(t)
     else
-      local _ = case_854_
+      local _ = case_844_
       return #t
     end
   end
@@ -326,34 +149,34 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function apply0(...)
-      local case_857_ = select("#", ...)
-      if (case_857_ == 0) then
+      local case_847_ = select("#", ...)
+      if (case_847_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "apply"))
-      elseif (case_857_ == 1) then
+      elseif (case_847_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "apply"))
-      elseif (case_857_ == 2) then
+      elseif (case_847_ == 2) then
         local f, args = ...
         return f(unpack_2a(args))
-      elseif (case_857_ == 3) then
+      elseif (case_847_ == 3) then
         local f, a0, args = ...
         return f(a0, unpack_2a(args))
-      elseif (case_857_ == 4) then
+      elseif (case_847_ == 4) then
         local f, a0, b, args = ...
         return f(a0, b, unpack_2a(args))
-      elseif (case_857_ == 5) then
+      elseif (case_847_ == 5) then
         local f, a0, b, c, args = ...
         return f(a0, b, c, unpack_2a(args))
       else
-        local _ = case_857_
-        local _let_858_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_858_.list
-        local _let_859_ = list_38_auto(...)
-        local f = _let_859_[1]
-        local a0 = _let_859_[2]
-        local b = _let_859_[3]
-        local c = _let_859_[4]
-        local d = _let_859_[5]
-        local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_859_, 6)
+        local _ = case_847_
+        local _let_848_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_848_.list
+        local _let_849_ = list_38_auto(...)
+        local f = _let_849_[1]
+        local a0 = _let_849_[2]
+        local b = _let_849_[3]
+        local c = _let_849_[4]
+        local d = _let_849_[5]
+        local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_849_, 6)
         local flat_args = {}
         local len = (length_2a(args) - 1)
         for i = 1, len do
@@ -373,31 +196,31 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function add0(...)
-      local case_861_ = select("#", ...)
-      if (case_861_ == 0) then
+      local case_851_ = select("#", ...)
+      if (case_851_ == 0) then
         return 0
-      elseif (case_861_ == 1) then
+      elseif (case_851_ == 1) then
         local a0 = ...
         return a0
-      elseif (case_861_ == 2) then
+      elseif (case_851_ == 2) then
         local a0, b = ...
         return (a0 + b)
-      elseif (case_861_ == 3) then
+      elseif (case_851_ == 3) then
         local a0, b, c = ...
         return (a0 + b + c)
-      elseif (case_861_ == 4) then
+      elseif (case_851_ == 4) then
         local a0, b, c, d = ...
         return (a0 + b + c + d)
       else
-        local _ = case_861_
-        local _let_862_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_862_.list
-        local _let_863_ = list_38_auto(...)
-        local a0 = _let_863_[1]
-        local b = _let_863_[2]
-        local c = _let_863_[3]
-        local d = _let_863_[4]
-        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_863_, 5)
+        local _ = case_851_
+        local _let_852_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_852_.list
+        local _let_853_ = list_38_auto(...)
+        local a0 = _let_853_[1]
+        local b = _let_853_[2]
+        local c = _let_853_[3]
+        local d = _let_853_[4]
+        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_853_, 5)
         return apply(add0, (a0 + b + c + d), rest)
       end
     end
@@ -409,31 +232,31 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function sub0(...)
-      local case_865_ = select("#", ...)
-      if (case_865_ == 0) then
+      local case_855_ = select("#", ...)
+      if (case_855_ == 0) then
         return 0
-      elseif (case_865_ == 1) then
+      elseif (case_855_ == 1) then
         local a0 = ...
         return ( - a0)
-      elseif (case_865_ == 2) then
+      elseif (case_855_ == 2) then
         local a0, b = ...
         return (a0 - b)
-      elseif (case_865_ == 3) then
+      elseif (case_855_ == 3) then
         local a0, b, c = ...
         return (a0 - b - c)
-      elseif (case_865_ == 4) then
+      elseif (case_855_ == 4) then
         local a0, b, c, d = ...
         return (a0 - b - c - d)
       else
-        local _ = case_865_
-        local _let_866_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_866_.list
-        local _let_867_ = list_38_auto(...)
-        local a0 = _let_867_[1]
-        local b = _let_867_[2]
-        local c = _let_867_[3]
-        local d = _let_867_[4]
-        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_867_, 5)
+        local _ = case_855_
+        local _let_856_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_856_.list
+        local _let_857_ = list_38_auto(...)
+        local a0 = _let_857_[1]
+        local b = _let_857_[2]
+        local c = _let_857_[3]
+        local d = _let_857_[4]
+        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_857_, 5)
         return apply(sub0, (a0 - b - c - d), rest)
       end
     end
@@ -445,31 +268,31 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function mul0(...)
-      local case_869_ = select("#", ...)
-      if (case_869_ == 0) then
+      local case_859_ = select("#", ...)
+      if (case_859_ == 0) then
         return 1
-      elseif (case_869_ == 1) then
+      elseif (case_859_ == 1) then
         local a0 = ...
         return a0
-      elseif (case_869_ == 2) then
+      elseif (case_859_ == 2) then
         local a0, b = ...
         return (a0 * b)
-      elseif (case_869_ == 3) then
+      elseif (case_859_ == 3) then
         local a0, b, c = ...
         return (a0 * b * c)
-      elseif (case_869_ == 4) then
+      elseif (case_859_ == 4) then
         local a0, b, c, d = ...
         return (a0 * b * c * d)
       else
-        local _ = case_869_
-        local _let_870_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_870_.list
-        local _let_871_ = list_38_auto(...)
-        local a0 = _let_871_[1]
-        local b = _let_871_[2]
-        local c = _let_871_[3]
-        local d = _let_871_[4]
-        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_871_, 5)
+        local _ = case_859_
+        local _let_860_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_860_.list
+        local _let_861_ = list_38_auto(...)
+        local a0 = _let_861_[1]
+        local b = _let_861_[2]
+        local c = _let_861_[3]
+        local d = _let_861_[4]
+        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_861_, 5)
         return apply(mul0, (a0 * b * c * d), rest)
       end
     end
@@ -481,31 +304,31 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function div0(...)
-      local case_873_ = select("#", ...)
-      if (case_873_ == 0) then
+      local case_863_ = select("#", ...)
+      if (case_863_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "div"))
-      elseif (case_873_ == 1) then
+      elseif (case_863_ == 1) then
         local a0 = ...
         return (1 / a0)
-      elseif (case_873_ == 2) then
+      elseif (case_863_ == 2) then
         local a0, b = ...
         return (a0 / b)
-      elseif (case_873_ == 3) then
+      elseif (case_863_ == 3) then
         local a0, b, c = ...
         return (a0 / b / c)
-      elseif (case_873_ == 4) then
+      elseif (case_863_ == 4) then
         local a0, b, c, d = ...
         return (a0 / b / c / d)
       else
-        local _ = case_873_
-        local _let_874_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_874_.list
-        local _let_875_ = list_38_auto(...)
-        local a0 = _let_875_[1]
-        local b = _let_875_[2]
-        local c = _let_875_[3]
-        local d = _let_875_[4]
-        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_875_, 5)
+        local _ = case_863_
+        local _let_864_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_864_.list
+        local _let_865_ = list_38_auto(...)
+        local a0 = _let_865_[1]
+        local b = _let_865_[2]
+        local c = _let_865_[3]
+        local d = _let_865_[4]
+        local rest = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_865_, 5)
         return apply(div0, (a0 / b / c / d), rest)
       end
     end
@@ -517,26 +340,26 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function le0(...)
-      local case_877_ = select("#", ...)
-      if (case_877_ == 0) then
+      local case_867_ = select("#", ...)
+      if (case_867_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "le"))
-      elseif (case_877_ == 1) then
+      elseif (case_867_ == 1) then
         local _ = ...
         return true
-      elseif (case_877_ == 2) then
+      elseif (case_867_ == 2) then
         local a0, b = ...
         return (a0 <= b)
       else
-        local _ = case_877_
-        local _let_878_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_878_.list
-        local _let_879_ = list_38_auto(...)
-        local a0 = _let_879_[1]
-        local b = _let_879_[2]
-        local _let_880_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_879_, 3)
-        local c = _let_880_[1]
-        local d = _let_880_[2]
-        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_880_, 3)
+        local _ = case_867_
+        local _let_868_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_868_.list
+        local _let_869_ = list_38_auto(...)
+        local a0 = _let_869_[1]
+        local b = _let_869_[2]
+        local _let_870_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_869_, 3)
+        local c = _let_870_[1]
+        local d = _let_870_[2]
+        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_870_, 3)
         if (a0 <= b) then
           if d then
             return apply(le0, b, c, d, more)
@@ -556,26 +379,26 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function lt0(...)
-      local case_884_ = select("#", ...)
-      if (case_884_ == 0) then
+      local case_874_ = select("#", ...)
+      if (case_874_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "lt"))
-      elseif (case_884_ == 1) then
+      elseif (case_874_ == 1) then
         local _ = ...
         return true
-      elseif (case_884_ == 2) then
+      elseif (case_874_ == 2) then
         local a0, b = ...
         return (a0 < b)
       else
-        local _ = case_884_
-        local _let_885_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_885_.list
-        local _let_886_ = list_38_auto(...)
-        local a0 = _let_886_[1]
-        local b = _let_886_[2]
-        local _let_887_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_886_, 3)
-        local c = _let_887_[1]
-        local d = _let_887_[2]
-        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_887_, 3)
+        local _ = case_874_
+        local _let_875_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_875_.list
+        local _let_876_ = list_38_auto(...)
+        local a0 = _let_876_[1]
+        local b = _let_876_[2]
+        local _let_877_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_876_, 3)
+        local c = _let_877_[1]
+        local d = _let_877_[2]
+        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_877_, 3)
         if (a0 < b) then
           if d then
             return apply(lt0, b, c, d, more)
@@ -595,26 +418,26 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function ge0(...)
-      local case_891_ = select("#", ...)
-      if (case_891_ == 0) then
+      local case_881_ = select("#", ...)
+      if (case_881_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "ge"))
-      elseif (case_891_ == 1) then
+      elseif (case_881_ == 1) then
         local _ = ...
         return true
-      elseif (case_891_ == 2) then
+      elseif (case_881_ == 2) then
         local a0, b = ...
         return (a0 >= b)
       else
-        local _ = case_891_
-        local _let_892_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_892_.list
-        local _let_893_ = list_38_auto(...)
-        local a0 = _let_893_[1]
-        local b = _let_893_[2]
-        local _let_894_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_893_, 3)
-        local c = _let_894_[1]
-        local d = _let_894_[2]
-        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_894_, 3)
+        local _ = case_881_
+        local _let_882_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_882_.list
+        local _let_883_ = list_38_auto(...)
+        local a0 = _let_883_[1]
+        local b = _let_883_[2]
+        local _let_884_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_883_, 3)
+        local c = _let_884_[1]
+        local d = _let_884_[2]
+        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_884_, 3)
         if (a0 >= b) then
           if d then
             return apply(ge0, b, c, d, more)
@@ -634,26 +457,26 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function gt0(...)
-      local case_898_ = select("#", ...)
-      if (case_898_ == 0) then
+      local case_888_ = select("#", ...)
+      if (case_888_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "gt"))
-      elseif (case_898_ == 1) then
+      elseif (case_888_ == 1) then
         local _ = ...
         return true
-      elseif (case_898_ == 2) then
+      elseif (case_888_ == 2) then
         local a0, b = ...
         return (a0 > b)
       else
-        local _ = case_898_
-        local _let_899_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_899_.list
-        local _let_900_ = list_38_auto(...)
-        local a0 = _let_900_[1]
-        local b = _let_900_[2]
-        local _let_901_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_900_, 3)
-        local c = _let_901_[1]
-        local d = _let_901_[2]
-        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_901_, 3)
+        local _ = case_888_
+        local _let_889_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_889_.list
+        local _let_890_ = list_38_auto(...)
+        local a0 = _let_890_[1]
+        local b = _let_890_[2]
+        local _let_891_ = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_890_, 3)
+        local c = _let_891_[1]
+        local d = _let_891_[2]
+        local more = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_891_, 3)
         if (a0 > b) then
           if d then
             return apply(gt0, b, c, d, more)
@@ -717,18 +540,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_908_ = type(x)
-      if (case_908_ == "table") then
-        local case_909_ = getmetatable(x)
-        if ((_G.type(case_909_) == "table") and (nil ~= case_909_["cljlib/type"])) then
-          local t = case_909_["cljlib/type"]
+      local case_898_ = type(x)
+      if (case_898_ == "table") then
+        local case_899_ = getmetatable(x)
+        if ((_G.type(case_899_) == "table") and (nil ~= case_899_["cljlib/type"])) then
+          local t = case_899_["cljlib/type"]
           return t
         else
-          local _ = case_909_
+          local _ = case_899_
           return "table"
         end
-      elseif (nil ~= case_908_) then
-        local t = case_908_
+      elseif (nil ~= case_898_) then
+        local t = case_898_
         return t
       else
         return nil
@@ -750,10 +573,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _913_()
+      local function _903_()
         return x
       end
-      return _913_
+      return _903_
     end
     v_27_auto = constantly0
     core["constantly"] = v_27_auto
@@ -771,28 +594,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function fn_915_(...)
-        local case_916_ = select("#", ...)
-        if (case_916_ == 0) then
+      local function fn_905_(...)
+        local case_906_ = select("#", ...)
+        if (case_906_ == 0) then
           return not f()
-        elseif (case_916_ == 1) then
+        elseif (case_906_ == 1) then
           local a0 = ...
           return not f(a0)
-        elseif (case_916_ == 2) then
+        elseif (case_906_ == 2) then
           local a0, b = ...
           return not f(a0, b)
         else
-          local _ = case_916_
-          local _let_917_ = require("io.gitlab.andreyorst.cljlib.core")
-          local list_38_auto = _let_917_.list
-          local _let_918_ = list_38_auto(...)
-          local a0 = _let_918_[1]
-          local b = _let_918_[2]
-          local cs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_918_, 3)
+          local _ = case_906_
+          local _let_907_ = require("io.gitlab.andreyorst.cljlib.core")
+          local list_38_auto = _let_907_.list
+          local _let_908_ = list_38_auto(...)
+          local a0 = _let_908_[1]
+          local b = _let_908_[2]
+          local cs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_908_, 3)
           return not apply(f, a0, b, cs)
         end
       end
-      return fn_915_
+      return fn_905_
     end
     v_27_auto = complement0
     core["complement"] = v_27_auto
@@ -820,48 +643,48 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function comp0(...)
-      local case_921_ = select("#", ...)
-      if (case_921_ == 0) then
+      local case_911_ = select("#", ...)
+      if (case_911_ == 0) then
         return identity
-      elseif (case_921_ == 1) then
+      elseif (case_911_ == 1) then
         local f = ...
         return f
-      elseif (case_921_ == 2) then
+      elseif (case_911_ == 2) then
         local f, g = ...
-        local function fn_922_(...)
-          local case_923_ = select("#", ...)
-          if (case_923_ == 0) then
+        local function fn_912_(...)
+          local case_913_ = select("#", ...)
+          if (case_913_ == 0) then
             return f(g())
-          elseif (case_923_ == 1) then
+          elseif (case_913_ == 1) then
             local x = ...
             return f(g(x))
-          elseif (case_923_ == 2) then
+          elseif (case_913_ == 2) then
             local x, y = ...
             return f(g(x, y))
-          elseif (case_923_ == 3) then
+          elseif (case_913_ == 3) then
             local x, y, z = ...
             return f(g(x, y, z))
           else
-            local _ = case_923_
-            local _let_924_ = require("io.gitlab.andreyorst.cljlib.core")
-            local list_38_auto = _let_924_.list
-            local _let_925_ = list_38_auto(...)
-            local x = _let_925_[1]
-            local y = _let_925_[2]
-            local z = _let_925_[3]
-            local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_925_, 4)
+            local _ = case_913_
+            local _let_914_ = require("io.gitlab.andreyorst.cljlib.core")
+            local list_38_auto = _let_914_.list
+            local _let_915_ = list_38_auto(...)
+            local x = _let_915_[1]
+            local y = _let_915_[2]
+            local z = _let_915_[3]
+            local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_915_, 4)
             return f(apply(g, x, y, z, args))
           end
         end
-        return fn_922_
+        return fn_912_
       else
-        local _ = case_921_
-        local _let_927_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_927_.list
-        local _let_928_ = list_38_auto(...)
-        local f = _let_928_[1]
-        local g = _let_928_[2]
-        local fs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_928_, 3)
+        local _ = case_911_
+        local _let_917_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_917_.list
+        local _let_918_ = list_38_auto(...)
+        local f = _let_918_[1]
+        local g = _let_918_[2]
+        local fs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_918_, 3)
         return core.reduce(comp0, core.cons(f, core.cons(g, fs)))
       end
     end
@@ -873,25 +696,25 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function eq0(...)
-      local case_930_ = select("#", ...)
-      if (case_930_ == 0) then
+      local case_920_ = select("#", ...)
+      if (case_920_ == 0) then
         return true
-      elseif (case_930_ == 1) then
+      elseif (case_920_ == 1) then
         local _ = ...
         return true
-      elseif (case_930_ == 2) then
+      elseif (case_920_ == 2) then
         local a0, b = ...
         if rawequal(a0, b) then
           return true
         elseif ((a0 == b) and (b == a0)) then
           return true
         else
-          local _931_ = type(a0)
-          if (("table" == _931_) and (_931_ == type(b))) then
+          local _921_ = type(a0)
+          if (("table" == _921_) and (_921_ == type(b))) then
             local res, count_a = true, 0
             for k, v in pairs_2a(a0) do
               if not res then break end
-              local function _932_(...)
+              local function _922_(...)
                 local res0, done = nil, nil
                 for k_2a, v0 in pairs_2a(b) do
                   if done then break end
@@ -902,7 +725,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 end
                 return res0
               end
-              res = eq0(v, _932_(...))
+              res = eq0(v, _922_(...))
               count_a = (count_a + 1)
             end
             if res then
@@ -923,13 +746,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
         end
       else
-        local _ = case_930_
-        local _let_936_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_936_.list
-        local _let_937_ = list_38_auto(...)
-        local a0 = _let_937_[1]
-        local b = _let_937_[2]
-        local cs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_937_, 3)
+        local _ = case_920_
+        local _let_926_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_926_.list
+        local _let_927_ = list_38_auto(...)
+        local a0 = _let_927_[1]
+        local b = _let_927_[2]
+        local cs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_927_, 3)
         return (eq0(a0, b) and apply(eq0, b, cs))
       end
     end
@@ -981,23 +804,23 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       local memo = setmetatable({}, {__index = deep_index})
-      local function fn_944_(...)
-        local _let_945_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_945_.list
-        local _let_946_ = list_38_auto(...)
-        local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_946_, 1)
-        local case_947_ = memo[args]
-        if (nil ~= case_947_) then
-          local res = case_947_
+      local function fn_934_(...)
+        local _let_935_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_935_.list
+        local _let_936_ = list_38_auto(...)
+        local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_936_, 1)
+        local case_937_ = memo[args]
+        if (nil ~= case_937_) then
+          local res = case_937_
           return unpack_2a(res, 1, res.n)
         else
-          local _ = case_947_
+          local _ = case_937_
           local res = pack_2a(f(...))
           memo[args] = res
           return unpack_2a(res, 1, res.n)
         end
       end
-      return fn_944_
+      return fn_934_
     end
     v_27_auto = memoize0
     core["memoize"] = v_27_auto
@@ -1015,12 +838,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_950_ = getmetatable(x)
-      if ((_G.type(case_950_) == "table") and (nil ~= case_950_["cljlib/deref"])) then
-        local f = case_950_["cljlib/deref"]
+      local case_940_ = getmetatable(x)
+      if ((_G.type(case_940_) == "table") and (nil ~= case_940_["cljlib/deref"])) then
+        local f = case_940_["cljlib/deref"]
         return f(x)
       else
-        local _ = case_950_
+        local _ = case_940_
         return error("object doesn't implement cljlib/deref metamethod", 2)
       end
     end
@@ -1040,19 +863,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_953_ = getmetatable(x)
-      if ((_G.type(case_953_) == "table") and (nil ~= case_953_["cljlib/empty"])) then
-        local f = case_953_["cljlib/empty"]
+      local case_943_ = getmetatable(x)
+      if ((_G.type(case_943_) == "table") and (nil ~= case_943_["cljlib/empty"])) then
+        local f = case_943_["cljlib/empty"]
         return f()
       else
-        local _ = case_953_
-        local case_954_ = type(x)
-        if (case_954_ == "table") then
+        local _ = case_943_
+        local case_944_ = type(x)
+        if (case_944_ == "table") then
           return {}
-        elseif (case_954_ == "string") then
+        elseif (case_944_ == "string") then
           return ""
         else
-          local _0 = case_954_
+          local _0 = case_944_
           return error(("don't know how to create empty variant of type " .. _0))
         end
       end
@@ -1065,14 +888,14 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function nil_3f0(...)
-      local case_957_ = select("#", ...)
-      if (case_957_ == 0) then
+      local case_947_ = select("#", ...)
+      if (case_947_ == 0) then
         return true
-      elseif (case_957_ == 1) then
+      elseif (case_947_ == 1) then
         local x = ...
         return (x == nil)
       else
-        local _ = case_957_
+        local _ = case_947_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "nil?"))
       end
     end
@@ -1326,23 +1149,23 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_973_ = type(x)
-      if (case_973_ == "table") then
-        local case_974_ = getmetatable(x)
-        if ((_G.type(case_974_) == "table") and (case_974_["cljlib/type"] == "seq")) then
+      local case_963_ = type(x)
+      if (case_963_ == "table") then
+        local case_964_ = getmetatable(x)
+        if ((_G.type(case_964_) == "table") and (case_964_["cljlib/type"] == "seq")) then
           return nil_3f(core.seq(x))
-        elseif ((case_974_ == nil) or ((_G.type(case_974_) == "table") and (case_974_["cljlib/type"] == nil))) then
+        elseif ((case_964_ == nil) or ((_G.type(case_964_) == "table") and (case_964_["cljlib/type"] == nil))) then
           local next_2a = pairs_2a(x)
           return (next_2a(x) == nil)
         else
           return nil
         end
-      elseif (case_973_ == "string") then
+      elseif (case_963_ == "string") then
         return (x == "")
-      elseif (case_973_ == "nil") then
+      elseif (case_963_ == "nil") then
         return true
       else
-        local _ = case_973_
+        local _ = case_963_
         return error("empty?: unsupported collection")
       end
     end
@@ -1385,24 +1208,24 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       if ("table" == type(x)) then
-        local case_980_ = getmetatable(x)
-        if ((_G.type(case_980_) == "table") and (case_980_["cljlib/type"] == "hash-map")) then
+        local case_970_ = getmetatable(x)
+        if ((_G.type(case_970_) == "table") and (case_970_["cljlib/type"] == "hash-map")) then
           return true
-        elseif ((_G.type(case_980_) == "table") and (case_980_["cljlib/type"] == "sorted-map")) then
+        elseif ((_G.type(case_970_) == "table") and (case_970_["cljlib/type"] == "sorted-map")) then
           return true
-        elseif ((case_980_ == nil) or ((_G.type(case_980_) == "table") and (case_980_["cljlib/type"] == nil))) then
+        elseif ((case_970_ == nil) or ((_G.type(case_970_) == "table") and (case_970_["cljlib/type"] == nil))) then
           local len = length_2a(x)
           local nxt, t, k = pairs_2a(x)
-          local function _981_(...)
+          local function _971_(...)
             if (len == 0) then
               return k
             else
               return len
             end
           end
-          return (nil ~= nxt(t, _981_(...)))
+          return (nil ~= nxt(t, _971_(...)))
         else
-          local _ = case_980_
+          local _ = case_970_
           return false
         end
       else
@@ -1426,20 +1249,20 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       if ("table" == type(x)) then
-        local case_985_ = getmetatable(x)
-        if ((_G.type(case_985_) == "table") and (case_985_["cljlib/type"] == "vector")) then
+        local case_975_ = getmetatable(x)
+        if ((_G.type(case_975_) == "table") and (case_975_["cljlib/type"] == "vector")) then
           return true
-        elseif ((case_985_ == nil) or ((_G.type(case_985_) == "table") and (case_985_["cljlib/type"] == nil))) then
+        elseif ((case_975_ == nil) or ((_G.type(case_975_) == "table") and (case_975_["cljlib/type"] == nil))) then
           local len = length_2a(x)
           local nxt, t, k = pairs_2a(x)
-          local function _986_(...)
+          local function _976_(...)
             if (len == 0) then
               return k
             else
               return len
             end
           end
-          if (nil ~= nxt(t, _986_(...))) then
+          if (nil ~= nxt(t, _976_(...))) then
             return false
           elseif (len > 0) then
             return true
@@ -1447,7 +1270,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             return false
           end
         else
-          local _ = case_985_
+          local _ = case_975_
           return false
         end
       else
@@ -1470,11 +1293,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_991_ = getmetatable(x)
-      if ((_G.type(case_991_) == "table") and (case_991_["cljlib/type"] == "hash-set")) then
+      local case_981_ = getmetatable(x)
+      if ((_G.type(case_981_) == "table") and (case_981_["cljlib/type"] == "hash-set")) then
         return true
       else
-        local _ = case_991_
+        local _ = case_981_
         return false
       end
     end
@@ -1519,33 +1342,33 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
     some_3f = v_27_auto
   end
   local function vec__3etransient(immutable)
-    local function _995_(vec)
+    local function _985_(vec)
       local len = #vec
-      local function _996_(_, i)
+      local function _986_(_, i)
         if (i <= len) then
           return vec[i]
         else
           return nil
         end
       end
-      local function _998_()
+      local function _988_()
         return len
       end
-      local function _999_()
+      local function _989_()
         return error("can't `conj` onto transient vector, use `conj!`")
       end
-      local function _1000_()
+      local function _990_()
         return error("can't `assoc` onto transient vector, use `assoc!`")
       end
-      local function _1001_()
+      local function _991_()
         return error("can't `dissoc` onto transient vector, use `dissoc!`")
       end
-      local function _1002_(tvec, v)
+      local function _992_(tvec, v)
         len = (len + 1)
         tvec[len] = v
         return tvec
       end
-      local function _1003_(tvec, ...)
+      local function _993_(tvec, ...)
         do
           local len0 = #tvec
           for i = 1, select("#", ...), 2 do
@@ -1559,7 +1382,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return tvec
       end
-      local function _1005_(tvec)
+      local function _995_(tvec)
         if (len == 0) then
           return error("transient vector is empty", 2)
         else
@@ -1568,10 +1391,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           return tvec
         end
       end
-      local function _1007_()
+      local function _997_()
         return error("can't `dissoc!` with a transient vector")
       end
-      local function _1008_(tvec)
+      local function _998_(tvec)
         local v
         do
           local tbl_26_ = {}
@@ -1590,33 +1413,33 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           table.remove(tvec)
           len = (len - 1)
         end
-        local function _1010_()
+        local function _1000_()
           return error("attempt to use transient after it was persistet")
         end
-        local function _1011_()
+        local function _1001_()
           return error("attempt to use transient after it was persistet")
         end
-        setmetatable(tvec, {__index = _1010_, __newindex = _1011_})
+        setmetatable(tvec, {__index = _1000_, __newindex = _1001_})
         return immutable(itable(v))
       end
-      return setmetatable({}, {__index = _996_, __len = _998_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _999_, ["cljlib/assoc"] = _1000_, ["cljlib/dissoc"] = _1001_, ["cljlib/conj!"] = _1002_, ["cljlib/assoc!"] = _1003_, ["cljlib/pop!"] = _1005_, ["cljlib/dissoc!"] = _1007_, ["cljlib/persistent!"] = _1008_})
+      return setmetatable({}, {__index = _986_, __len = _988_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _989_, ["cljlib/assoc"] = _990_, ["cljlib/dissoc"] = _991_, ["cljlib/conj!"] = _992_, ["cljlib/assoc!"] = _993_, ["cljlib/pop!"] = _995_, ["cljlib/dissoc!"] = _997_, ["cljlib/persistent!"] = _998_})
     end
-    return _995_
+    return _985_
   end
   local function vec_2a(v, len)
     do
-      local case_1012_ = getmetatable(v)
-      if (nil ~= case_1012_) then
-        local mt = case_1012_
+      local case_1002_ = getmetatable(v)
+      if (nil ~= case_1002_) then
+        local mt = case_1002_
         mt["__len"] = constantly((len or length_2a(v)))
         mt["cljlib/type"] = "vector"
         mt["cljlib/editable"] = true
-        local function _1013_(t, v0)
+        local function _1003_(t, v0)
           local len0 = length_2a(t)
           return vec_2a(itable.assoc(t, (len0 + 1), v0), (len0 + 1))
         end
-        mt["cljlib/conj"] = _1013_
-        local function _1014_(t)
+        mt["cljlib/conj"] = _1003_
+        local function _1004_(t)
           local len0 = (length_2a(t) - 1)
           local coll = {}
           if (len0 < 0) then
@@ -1628,13 +1451,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
           return vec_2a(itable(coll), len0)
         end
-        mt["cljlib/pop"] = _1014_
-        local function _1016_()
+        mt["cljlib/pop"] = _1004_
+        local function _1006_()
           return vec_2a(itable({}))
         end
-        mt["cljlib/empty"] = _1016_
+        mt["cljlib/empty"] = _1006_
         mt["cljlib/transient"] = vec__3etransient(vec_2a)
-        local function _1017_(coll, view, inspector, indent)
+        local function _1007_(coll, view, inspector, indent)
           if empty_3f(coll) then
             return "[]"
           else
@@ -1657,8 +1480,8 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             return lines
           end
         end
-        mt["__fennelview"] = _1017_
-      elseif (case_1012_ == nil) then
+        mt["__fennelview"] = _1007_
+      elseif (case_1002_ == nil) then
         vec_2a(setmetatable(v, {}))
       else
       end
@@ -1684,12 +1507,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       elseif "else" then
         local packed = lazy.pack(core.seq(coll))
         local len = packed.n
-        local _1022_
+        local _1012_
         do
           packed["n"] = nil
-          _1022_ = packed
+          _1012_ = packed
         end
-        return vec_2a(itable(_1022_, {["fast-index?"] = true}), len)
+        return vec_2a(itable(_1012_, {["fast-index?"] = true}), len)
       else
         return nil
       end
@@ -1702,10 +1525,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function vector0(...)
-      local _let_1024_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1024_.list
-      local _let_1025_ = list_38_auto(...)
-      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1025_, 1)
+      local _let_1014_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1014_.list
+      local _let_1015_ = list_38_auto(...)
+      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1015_, 1)
       return vec(args)
     end
     v_27_auto = vector0
@@ -1716,12 +1539,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function nth0(...)
-      local case_1027_ = select("#", ...)
-      if (case_1027_ == 0) then
+      local case_1017_ = select("#", ...)
+      if (case_1017_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "nth"))
-      elseif (case_1027_ == 1) then
+      elseif (case_1017_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "nth"))
-      elseif (case_1027_ == 2) then
+      elseif (case_1017_ == 2) then
         local coll, i = ...
         if vector_3f(coll) then
           if ((i < 1) or (length_2a(coll) < i)) then
@@ -1738,7 +1561,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
           return nil
         end
-      elseif (case_1027_ == 3) then
+      elseif (case_1017_ == 3) then
         local coll, i, not_found = ...
         assert(int_3f(i), "expected an integer key")
         if vector_3f(coll) then
@@ -1753,7 +1576,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           return nil
         end
       else
-        local _ = case_1027_
+        local _ = case_1017_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "nth"))
       end
     end
@@ -1772,18 +1595,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       end
     end
     do
-      local case_1033_ = getmetatable(x)
-      if (nil ~= case_1033_) then
-        local mt = case_1033_
+      local case_1023_ = getmetatable(x)
+      if (nil ~= case_1023_) then
+        local mt = case_1023_
         mt["cljlib/type"] = "seq"
-        local function _1034_(s, v)
+        local function _1024_(s, v)
           return core.cons(v, s)
         end
-        mt["cljlib/conj"] = _1034_
-        local function _1035_()
+        mt["cljlib/conj"] = _1024_
+        local function _1025_()
           return core.list()
         end
-        mt["cljlib/empty"] = _1035_
+        mt["cljlib/empty"] = _1025_
       else
       end
     end
@@ -1802,13 +1625,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _1039_(...)
-        local case_1038_ = getmetatable(coll)
-        if ((_G.type(case_1038_) == "table") and (nil ~= case_1038_["cljlib/seq"])) then
-          local f = case_1038_["cljlib/seq"]
+      local function _1029_(...)
+        local case_1028_ = getmetatable(coll)
+        if ((_G.type(case_1028_) == "table") and (nil ~= case_1028_["cljlib/seq"])) then
+          local f = case_1028_["cljlib/seq"]
           return f(coll)
         else
-          local _ = case_1038_
+          local _ = case_1028_
           if lazy["seq?"](coll) then
             return lazy.seq(coll)
           elseif map_3f(coll) then
@@ -1820,7 +1643,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
         end
       end
-      return seq_2a(_1039_(...))
+      return seq_2a(_1029_(...))
     end
     v_27_auto = seq0
     core["seq"] = v_27_auto
@@ -1926,11 +1749,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1048_ = getmetatable(s)
-      if ((_G.type(case_1048_) == "table") and (case_1048_["cljlib/type"] == "vector")) then
+      local case_1038_ = getmetatable(s)
+      if ((_G.type(case_1038_) == "table") and (case_1038_["cljlib/type"] == "vector")) then
         return length_2a(s)
       else
-        local _ = case_1048_
+        local _ = case_1038_
         return lazy.count(s)
       end
     end
@@ -1964,10 +1787,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function list_2a0(...)
-      local _let_1051_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1051_.list
-      local _let_1052_ = list_38_auto(...)
-      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1052_, 1)
+      local _let_1041_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1041_.list
+      local _let_1042_ = list_38_auto(...)
+      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1042_, 1)
       return seq_2a(apply(lazy["list*"], args))
     end
     v_27_auto = list_2a0
@@ -1986,12 +1809,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1054_ = next_2a(coll)
-      if (nil ~= case_1054_) then
-        local coll_2a = case_1054_
+      local case_1044_ = next_2a(coll)
+      if (nil ~= case_1044_) then
+        local coll_2a = case_1044_
         return last0(coll_2a)
       else
-        local _ = case_1054_
+        local _ = case_1044_
         return first(coll)
       end
     end
@@ -2021,55 +1844,55 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function map0(...)
-      local case_1057_ = select("#", ...)
-      if (case_1057_ == 0) then
+      local case_1047_ = select("#", ...)
+      if (case_1047_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "map"))
-      elseif (case_1057_ == 1) then
+      elseif (case_1047_ == 1) then
         local f = ...
-        local function fn_1058_(...)
+        local function fn_1048_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1058_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1048_"))
             else
             end
           end
-          local function fn_1060_(...)
-            local case_1061_ = select("#", ...)
-            if (case_1061_ == 0) then
+          local function fn_1050_(...)
+            local case_1051_ = select("#", ...)
+            if (case_1051_ == 0) then
               return rf()
-            elseif (case_1061_ == 1) then
+            elseif (case_1051_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1061_ == 2) then
+            elseif (case_1051_ == 2) then
               local result, input = ...
               return rf(result, f(input))
             else
-              local _ = case_1061_
-              local _let_1062_ = require("io.gitlab.andreyorst.cljlib.core")
-              local list_38_auto = _let_1062_.list
-              local _let_1063_ = list_38_auto(...)
-              local result = _let_1063_[1]
-              local input = _let_1063_[2]
-              local inputs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1063_, 3)
+              local _ = case_1051_
+              local _let_1052_ = require("io.gitlab.andreyorst.cljlib.core")
+              local list_38_auto = _let_1052_.list
+              local _let_1053_ = list_38_auto(...)
+              local result = _let_1053_[1]
+              local input = _let_1053_[2]
+              local inputs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1053_, 3)
               return rf(result, apply(f, input, inputs))
             end
           end
-          return fn_1060_
+          return fn_1050_
         end
-        return fn_1058_
-      elseif (case_1057_ == 2) then
+        return fn_1048_
+      elseif (case_1047_ == 2) then
         local f, coll = ...
         return seq_2a(lazy.map(f, coll))
       else
-        local _ = case_1057_
-        local _let_1065_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1065_.list
-        local _let_1066_ = list_38_auto(...)
-        local f = _let_1066_[1]
-        local coll = _let_1066_[2]
-        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1066_, 3)
+        local _ = case_1047_
+        local _let_1055_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1055_.list
+        local _let_1056_ = list_38_auto(...)
+        local f = _let_1056_[1]
+        local coll = _let_1056_[2]
+        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1056_, 3)
         return seq_2a(apply(lazy.map, f, coll, colls))
       end
     end
@@ -2081,22 +1904,22 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function mapv0(...)
-      local case_1069_ = select("#", ...)
-      if (case_1069_ == 0) then
+      local case_1059_ = select("#", ...)
+      if (case_1059_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "mapv"))
-      elseif (case_1069_ == 1) then
+      elseif (case_1059_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "mapv"))
-      elseif (case_1069_ == 2) then
+      elseif (case_1059_ == 2) then
         local f, coll = ...
         return core["persistent!"](core.transduce(map(f), core["conj!"], core.transient(vector()), coll))
       else
-        local _ = case_1069_
-        local _let_1070_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1070_.list
-        local _let_1071_ = list_38_auto(...)
-        local f = _let_1071_[1]
-        local coll = _let_1071_[2]
-        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1071_, 3)
+        local _ = case_1059_
+        local _let_1060_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1060_.list
+        local _let_1061_ = list_38_auto(...)
+        local f = _let_1061_[1]
+        local coll = _let_1061_[2]
+        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1061_, 3)
         return vec(apply(map, f, coll, colls))
       end
     end
@@ -2108,45 +1931,45 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function map_indexed0(...)
-      local case_1073_ = select("#", ...)
-      if (case_1073_ == 0) then
+      local case_1063_ = select("#", ...)
+      if (case_1063_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "map-indexed"))
-      elseif (case_1073_ == 1) then
+      elseif (case_1063_ == 1) then
         local f = ...
-        local function fn_1074_(...)
+        local function fn_1064_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1074_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1064_"))
             else
             end
           end
           local i = -1
-          local function fn_1076_(...)
-            local case_1077_ = select("#", ...)
-            if (case_1077_ == 0) then
+          local function fn_1066_(...)
+            local case_1067_ = select("#", ...)
+            if (case_1067_ == 0) then
               return rf()
-            elseif (case_1077_ == 1) then
+            elseif (case_1067_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1077_ == 2) then
+            elseif (case_1067_ == 2) then
               local result, input = ...
               i = (i + 1)
               return rf(result, f(i, input))
             else
-              local _ = case_1077_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1076_"))
+              local _ = case_1067_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1066_"))
             end
           end
-          return fn_1076_
+          return fn_1066_
         end
-        return fn_1074_
-      elseif (case_1073_ == 2) then
+        return fn_1064_
+      elseif (case_1063_ == 2) then
         local f, coll = ...
         return seq_2a(lazy["map-indexed"](f, coll))
       else
-        local _ = case_1073_
+        local _ = case_1063_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "map-indexed"))
       end
     end
@@ -2158,19 +1981,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function mapcat0(...)
-      local case_1080_ = select("#", ...)
-      if (case_1080_ == 0) then
+      local case_1070_ = select("#", ...)
+      if (case_1070_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "mapcat"))
-      elseif (case_1080_ == 1) then
+      elseif (case_1070_ == 1) then
         local f = ...
         return comp(map(f), core.cat)
       else
-        local _ = case_1080_
-        local _let_1081_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1081_.list
-        local _let_1082_ = list_38_auto(...)
-        local f = _let_1082_[1]
-        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1082_, 2)
+        local _ = case_1070_
+        local _let_1071_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1071_.list
+        local _let_1072_ = list_38_auto(...)
+        local f = _let_1072_[1]
+        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1072_, 2)
         return seq_2a(apply(lazy.mapcat, f, colls))
       end
     end
@@ -2182,28 +2005,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function filter0(...)
-      local case_1084_ = select("#", ...)
-      if (case_1084_ == 0) then
+      local case_1074_ = select("#", ...)
+      if (case_1074_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "filter"))
-      elseif (case_1084_ == 1) then
+      elseif (case_1074_ == 1) then
         local pred = ...
-        local function fn_1085_(...)
+        local function fn_1075_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1085_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1075_"))
             else
             end
           end
-          local function fn_1087_(...)
-            local case_1088_ = select("#", ...)
-            if (case_1088_ == 0) then
+          local function fn_1077_(...)
+            local case_1078_ = select("#", ...)
+            if (case_1078_ == 0) then
               return rf()
-            elseif (case_1088_ == 1) then
+            elseif (case_1078_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1088_ == 2) then
+            elseif (case_1078_ == 2) then
               local result, input = ...
               if pred(input) then
                 return rf(result, input)
@@ -2211,18 +2034,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return result
               end
             else
-              local _ = case_1088_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1087_"))
+              local _ = case_1078_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1077_"))
             end
           end
-          return fn_1087_
+          return fn_1077_
         end
-        return fn_1085_
-      elseif (case_1084_ == 2) then
+        return fn_1075_
+      elseif (case_1074_ == 2) then
         local pred, coll = ...
         return seq_2a(lazy.filter(pred, coll))
       else
-        local _ = case_1084_
+        local _ = case_1074_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "filter"))
       end
     end
@@ -2296,10 +2119,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _1096_(_241)
+      local function _1086_(_241)
         return not pred(_241)
       end
-      return some(_1096_, coll)
+      return some(_1086_, coll)
     end
     v_27_auto = not_any_3f0
     core["not-any?"] = v_27_auto
@@ -2309,20 +2132,20 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function range0(...)
-      local case_1097_ = select("#", ...)
-      if (case_1097_ == 0) then
+      local case_1087_ = select("#", ...)
+      if (case_1087_ == 0) then
         return seq_2a(lazy.range())
-      elseif (case_1097_ == 1) then
+      elseif (case_1087_ == 1) then
         local upper = ...
         return seq_2a(lazy.range(upper))
-      elseif (case_1097_ == 2) then
+      elseif (case_1087_ == 2) then
         local lower, upper = ...
         return seq_2a(lazy.range(lower, upper))
-      elseif (case_1097_ == 3) then
+      elseif (case_1087_ == 3) then
         local lower, upper, step = ...
         return seq_2a(lazy.range(lower, upper, step))
       else
-        local _ = case_1097_
+        local _ = case_1087_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "range"))
       end
     end
@@ -2334,10 +2157,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function concat0(...)
-      local _let_1099_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1099_.list
-      local _let_1100_ = list_38_auto(...)
-      local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1100_, 1)
+      local _let_1089_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1089_.list
+      local _let_1090_ = list_38_auto(...)
+      local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1090_, 1)
       return seq_2a(apply(lazy.concat, colls))
     end
     v_27_auto = concat0
@@ -2366,29 +2189,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function take0(...)
-      local case_1102_ = select("#", ...)
-      if (case_1102_ == 0) then
+      local case_1092_ = select("#", ...)
+      if (case_1092_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "take"))
-      elseif (case_1102_ == 1) then
+      elseif (case_1092_ == 1) then
         local n = ...
-        local function fn_1103_(...)
+        local function fn_1093_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1103_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1093_"))
             else
             end
           end
           local n0 = n
-          local function fn_1105_(...)
-            local case_1106_ = select("#", ...)
-            if (case_1106_ == 0) then
+          local function fn_1095_(...)
+            local case_1096_ = select("#", ...)
+            if (case_1096_ == 0) then
               return rf()
-            elseif (case_1106_ == 1) then
+            elseif (case_1096_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1106_ == 2) then
+            elseif (case_1096_ == 2) then
               local result, input = ...
               local result0
               if (0 < n0) then
@@ -2403,18 +2226,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return result0
               end
             else
-              local _ = case_1106_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1105_"))
+              local _ = case_1096_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1095_"))
             end
           end
-          return fn_1105_
+          return fn_1095_
         end
-        return fn_1103_
-      elseif (case_1102_ == 2) then
+        return fn_1093_
+      elseif (case_1092_ == 2) then
         local n, coll = ...
         return seq_2a(lazy.take(n, coll))
       else
-        local _ = case_1102_
+        local _ = case_1092_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "take"))
       end
     end
@@ -2426,28 +2249,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function take_while0(...)
-      local case_1111_ = select("#", ...)
-      if (case_1111_ == 0) then
+      local case_1101_ = select("#", ...)
+      if (case_1101_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "take-while"))
-      elseif (case_1111_ == 1) then
+      elseif (case_1101_ == 1) then
         local pred = ...
-        local function fn_1112_(...)
+        local function fn_1102_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1112_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1102_"))
             else
             end
           end
-          local function fn_1114_(...)
-            local case_1115_ = select("#", ...)
-            if (case_1115_ == 0) then
+          local function fn_1104_(...)
+            local case_1105_ = select("#", ...)
+            if (case_1105_ == 0) then
               return rf()
-            elseif (case_1115_ == 1) then
+            elseif (case_1105_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1115_ == 2) then
+            elseif (case_1105_ == 2) then
               local result, input = ...
               if pred(input) then
                 return rf(result, input)
@@ -2455,18 +2278,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return core.reduced(result)
               end
             else
-              local _ = case_1115_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1114_"))
+              local _ = case_1105_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1104_"))
             end
           end
-          return fn_1114_
+          return fn_1104_
         end
-        return fn_1112_
-      elseif (case_1111_ == 2) then
+        return fn_1102_
+      elseif (case_1101_ == 2) then
         local pred, coll = ...
         return seq_2a(lazy["take-while"](pred, coll))
       else
-        local _ = case_1111_
+        local _ = case_1101_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "take-while"))
       end
     end
@@ -2478,29 +2301,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function drop0(...)
-      local case_1119_ = select("#", ...)
-      if (case_1119_ == 0) then
+      local case_1109_ = select("#", ...)
+      if (case_1109_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "drop"))
-      elseif (case_1119_ == 1) then
+      elseif (case_1109_ == 1) then
         local n = ...
-        local function fn_1120_(...)
+        local function fn_1110_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1120_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1110_"))
             else
             end
           end
           local nv = n
-          local function fn_1122_(...)
-            local case_1123_ = select("#", ...)
-            if (case_1123_ == 0) then
+          local function fn_1112_(...)
+            local case_1113_ = select("#", ...)
+            if (case_1113_ == 0) then
               return rf()
-            elseif (case_1123_ == 1) then
+            elseif (case_1113_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1123_ == 2) then
+            elseif (case_1113_ == 2) then
               local result, input = ...
               local n0 = nv
               nv = (nv - 1)
@@ -2510,18 +2333,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, input)
               end
             else
-              local _ = case_1123_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1122_"))
+              local _ = case_1113_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1112_"))
             end
           end
-          return fn_1122_
+          return fn_1112_
         end
-        return fn_1120_
-      elseif (case_1119_ == 2) then
+        return fn_1110_
+      elseif (case_1109_ == 2) then
         local n, coll = ...
         return seq_2a(lazy.drop(n, coll))
       else
-        local _ = case_1119_
+        local _ = case_1109_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "drop"))
       end
     end
@@ -2533,29 +2356,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function drop_while0(...)
-      local case_1127_ = select("#", ...)
-      if (case_1127_ == 0) then
+      local case_1117_ = select("#", ...)
+      if (case_1117_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "drop-while"))
-      elseif (case_1127_ == 1) then
+      elseif (case_1117_ == 1) then
         local pred = ...
-        local function fn_1128_(...)
+        local function fn_1118_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1128_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1118_"))
             else
             end
           end
           local dv = true
-          local function fn_1130_(...)
-            local case_1131_ = select("#", ...)
-            if (case_1131_ == 0) then
+          local function fn_1120_(...)
+            local case_1121_ = select("#", ...)
+            if (case_1121_ == 0) then
               return rf()
-            elseif (case_1131_ == 1) then
+            elseif (case_1121_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1131_ == 2) then
+            elseif (case_1121_ == 2) then
               local result, input = ...
               local drop_3f = dv
               if (drop_3f and pred(input)) then
@@ -2565,18 +2388,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, input)
               end
             else
-              local _ = case_1131_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1130_"))
+              local _ = case_1121_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1120_"))
             end
           end
-          return fn_1130_
+          return fn_1120_
         end
-        return fn_1128_
-      elseif (case_1127_ == 2) then
+        return fn_1118_
+      elseif (case_1117_ == 2) then
         local pred, coll = ...
         return seq_2a(lazy["drop-while"](pred, coll))
       else
-        local _ = case_1127_
+        local _ = case_1117_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "drop-while"))
       end
     end
@@ -2588,17 +2411,17 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function drop_last0(...)
-      local case_1135_ = select("#", ...)
-      if (case_1135_ == 0) then
+      local case_1125_ = select("#", ...)
+      if (case_1125_ == 0) then
         return seq_2a(lazy["drop-last"]())
-      elseif (case_1135_ == 1) then
+      elseif (case_1125_ == 1) then
         local coll = ...
         return seq_2a(lazy["drop-last"](coll))
-      elseif (case_1135_ == 2) then
+      elseif (case_1125_ == 2) then
         local n, coll = ...
         return seq_2a(lazy["drop-last"](n, coll))
       else
-        local _ = case_1135_
+        local _ = case_1125_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "drop-last"))
       end
     end
@@ -2628,29 +2451,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function take_nth0(...)
-      local case_1138_ = select("#", ...)
-      if (case_1138_ == 0) then
+      local case_1128_ = select("#", ...)
+      if (case_1128_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "take-nth"))
-      elseif (case_1138_ == 1) then
+      elseif (case_1128_ == 1) then
         local n = ...
-        local function fn_1139_(...)
+        local function fn_1129_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1139_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1129_"))
             else
             end
           end
           local iv = -1
-          local function fn_1141_(...)
-            local case_1142_ = select("#", ...)
-            if (case_1142_ == 0) then
+          local function fn_1131_(...)
+            local case_1132_ = select("#", ...)
+            if (case_1132_ == 0) then
               return rf()
-            elseif (case_1142_ == 1) then
+            elseif (case_1132_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1142_ == 2) then
+            elseif (case_1132_ == 2) then
               local result, input = ...
               iv = (iv + 1)
               if (0 == (iv % n)) then
@@ -2659,18 +2482,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return result
               end
             else
-              local _ = case_1142_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1141_"))
+              local _ = case_1132_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1131_"))
             end
           end
-          return fn_1141_
+          return fn_1131_
         end
-        return fn_1139_
-      elseif (case_1138_ == 2) then
+        return fn_1129_
+      elseif (case_1128_ == 2) then
         local n, coll = ...
         return seq_2a(lazy["take-nth"](n, coll))
       else
-        local _ = case_1138_
+        local _ = case_1128_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "take-nth"))
       end
     end
@@ -2754,28 +2577,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function keep0(...)
-      local case_1150_ = select("#", ...)
-      if (case_1150_ == 0) then
+      local case_1140_ = select("#", ...)
+      if (case_1140_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "keep"))
-      elseif (case_1150_ == 1) then
+      elseif (case_1140_ == 1) then
         local f = ...
-        local function fn_1151_(...)
+        local function fn_1141_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1151_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1141_"))
             else
             end
           end
-          local function fn_1153_(...)
-            local case_1154_ = select("#", ...)
-            if (case_1154_ == 0) then
+          local function fn_1143_(...)
+            local case_1144_ = select("#", ...)
+            if (case_1144_ == 0) then
               return rf()
-            elseif (case_1154_ == 1) then
+            elseif (case_1144_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1154_ == 2) then
+            elseif (case_1144_ == 2) then
               local result, input = ...
               local v = f(input)
               if nil_3f(v) then
@@ -2784,18 +2607,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, v)
               end
             else
-              local _ = case_1154_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1153_"))
+              local _ = case_1144_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1143_"))
             end
           end
-          return fn_1153_
+          return fn_1143_
         end
-        return fn_1151_
-      elseif (case_1150_ == 2) then
+        return fn_1141_
+      elseif (case_1140_ == 2) then
         local f, coll = ...
         return seq_2a(lazy.keep(f, coll))
       else
-        local _ = case_1150_
+        local _ = case_1140_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "keep"))
       end
     end
@@ -2807,29 +2630,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function keep_indexed0(...)
-      local case_1158_ = select("#", ...)
-      if (case_1158_ == 0) then
+      local case_1148_ = select("#", ...)
+      if (case_1148_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "keep-indexed"))
-      elseif (case_1158_ == 1) then
+      elseif (case_1148_ == 1) then
         local f = ...
-        local function fn_1159_(...)
+        local function fn_1149_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1159_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1149_"))
             else
             end
           end
           local iv = -1
-          local function fn_1161_(...)
-            local case_1162_ = select("#", ...)
-            if (case_1162_ == 0) then
+          local function fn_1151_(...)
+            local case_1152_ = select("#", ...)
+            if (case_1152_ == 0) then
               return rf()
-            elseif (case_1162_ == 1) then
+            elseif (case_1152_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1162_ == 2) then
+            elseif (case_1152_ == 2) then
               local result, input = ...
               iv = (iv + 1)
               local v = f(iv, input)
@@ -2839,18 +2662,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, v)
               end
             else
-              local _ = case_1162_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1161_"))
+              local _ = case_1152_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1151_"))
             end
           end
-          return fn_1161_
+          return fn_1151_
         end
-        return fn_1159_
-      elseif (case_1158_ == 2) then
+        return fn_1149_
+      elseif (case_1148_ == 2) then
         local f, coll = ...
         return seq_2a(lazy["keep-indexed"](f, coll))
       else
-        local _ = case_1158_
+        local _ = case_1148_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "keep-indexed"))
       end
     end
@@ -2862,22 +2685,22 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function partition0(...)
-      local case_1167_ = select("#", ...)
-      if (case_1167_ == 0) then
+      local case_1157_ = select("#", ...)
+      if (case_1157_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "partition"))
-      elseif (case_1167_ == 1) then
+      elseif (case_1157_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "partition"))
-      elseif (case_1167_ == 2) then
+      elseif (case_1157_ == 2) then
         local n, coll = ...
         return map(seq_2a, lazy.partition(n, coll))
-      elseif (case_1167_ == 3) then
+      elseif (case_1157_ == 3) then
         local n, step, coll = ...
         return map(seq_2a, lazy.partition(n, step, coll))
-      elseif (case_1167_ == 4) then
+      elseif (case_1157_ == 4) then
         local n, step, pad, coll = ...
         return map(seq_2a, lazy.partition(n, step, pad, coll))
       else
-        local _ = case_1167_
+        local _ = case_1157_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "partition"))
       end
     end
@@ -2887,51 +2710,51 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   end
   local function array()
     local len = 0
-    local function _1169_()
+    local function _1159_()
       return len
     end
-    local function _1170_(self)
+    local function _1160_(self)
       while (0 ~= len) do
         self[len] = nil
         len = (len - 1)
       end
       return nil
     end
-    local function _1171_(self, val)
+    local function _1161_(self, val)
       len = (len + 1)
       self[len] = val
       return self
     end
-    return setmetatable({}, {__len = _1169_, __index = {clear = _1170_, add = _1171_}})
+    return setmetatable({}, {__len = _1159_, __index = {clear = _1160_, add = _1161_}})
   end
   local partition_by
   do
     local v_27_auto
     local function partition_by0(...)
-      local case_1172_ = select("#", ...)
-      if (case_1172_ == 0) then
+      local case_1162_ = select("#", ...)
+      if (case_1162_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "partition-by"))
-      elseif (case_1172_ == 1) then
+      elseif (case_1162_ == 1) then
         local f = ...
-        local function fn_1173_(...)
+        local function fn_1163_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1173_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1163_"))
             else
             end
           end
           local a0 = array()
           local none = {}
           local pv = none
-          local function fn_1175_(...)
-            local case_1176_ = select("#", ...)
-            if (case_1176_ == 0) then
+          local function fn_1165_(...)
+            local case_1166_ = select("#", ...)
+            if (case_1166_ == 0) then
               return rf()
-            elseif (case_1176_ == 1) then
+            elseif (case_1166_ == 1) then
               local result = ...
-              local function _1177_(...)
+              local function _1167_(...)
                 if empty_3f(a0) then
                   return result
                 else
@@ -2940,8 +2763,8 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                   return core.unreduced(rf(result, v))
                 end
               end
-              return rf(_1177_(...))
-            elseif (case_1176_ == 2) then
+              return rf(_1167_(...))
+            elseif (case_1166_ == 2) then
               local result, input = ...
               local pval = pv
               local val = f(input)
@@ -2960,18 +2783,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return ret
               end
             else
-              local _ = case_1176_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1175_"))
+              local _ = case_1166_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1165_"))
             end
           end
-          return fn_1175_
+          return fn_1165_
         end
-        return fn_1173_
-      elseif (case_1172_ == 2) then
+        return fn_1163_
+      elseif (case_1162_ == 2) then
         local f, coll = ...
         return map(seq_2a, lazy["partition-by"](f, coll))
       else
-        local _ = case_1172_
+        local _ = case_1162_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "partition-by"))
       end
     end
@@ -2983,28 +2806,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function partition_all0(...)
-      local case_1182_ = select("#", ...)
-      if (case_1182_ == 0) then
+      local case_1172_ = select("#", ...)
+      if (case_1172_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "partition-all"))
-      elseif (case_1182_ == 1) then
+      elseif (case_1172_ == 1) then
         local n = ...
-        local function fn_1183_(...)
+        local function fn_1173_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1183_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1173_"))
             else
             end
           end
           local a0 = array()
-          local function fn_1185_(...)
-            local case_1186_ = select("#", ...)
-            if (case_1186_ == 0) then
+          local function fn_1175_(...)
+            local case_1176_ = select("#", ...)
+            if (case_1176_ == 0) then
               return rf()
-            elseif (case_1186_ == 1) then
+            elseif (case_1176_ == 1) then
               local result = ...
-              local function _1187_(...)
+              local function _1177_(...)
                 if (0 == #a0) then
                   return result
                 else
@@ -3013,8 +2836,8 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                   return core.unreduced(rf(result, v))
                 end
               end
-              return rf(_1187_(...))
-            elseif (case_1186_ == 2) then
+              return rf(_1177_(...))
+            elseif (case_1176_ == 2) then
               local result, input = ...
               a0:add(input)
               if (n == #a0) then
@@ -3025,21 +2848,21 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return result
               end
             else
-              local _ = case_1186_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1185_"))
+              local _ = case_1176_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1175_"))
             end
           end
-          return fn_1185_
+          return fn_1175_
         end
-        return fn_1183_
-      elseif (case_1182_ == 2) then
+        return fn_1173_
+      elseif (case_1172_ == 2) then
         local n, coll = ...
         return map(seq_2a, lazy["partition-all"](n, coll))
-      elseif (case_1182_ == 3) then
+      elseif (case_1172_ == 3) then
         local n, step, coll = ...
         return map(seq_2a, lazy["partition-all"](n, step, coll))
       else
-        local _ = case_1182_
+        local _ = case_1172_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "partition-all"))
       end
     end
@@ -3051,19 +2874,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function reductions0(...)
-      local case_1192_ = select("#", ...)
-      if (case_1192_ == 0) then
+      local case_1182_ = select("#", ...)
+      if (case_1182_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "reductions"))
-      elseif (case_1192_ == 1) then
+      elseif (case_1182_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "reductions"))
-      elseif (case_1192_ == 2) then
+      elseif (case_1182_ == 2) then
         local f, coll = ...
         return seq_2a(lazy.reductions(f, coll))
-      elseif (case_1192_ == 3) then
+      elseif (case_1182_ == 3) then
         local f, init, coll = ...
         return seq_2a(lazy.reductions(f, init, coll))
       else
-        local _ = case_1192_
+        local _ = case_1182_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "reductions"))
       end
     end
@@ -3093,26 +2916,26 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function distinct0(...)
-      local case_1195_ = select("#", ...)
-      if (case_1195_ == 0) then
-        local function fn_1196_(...)
+      local case_1185_ = select("#", ...)
+      if (case_1185_ == 0) then
+        local function fn_1186_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1196_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1186_"))
             else
             end
           end
           local seen = setmetatable({}, {__index = deep_index})
-          local function fn_1198_(...)
-            local case_1199_ = select("#", ...)
-            if (case_1199_ == 0) then
+          local function fn_1188_(...)
+            local case_1189_ = select("#", ...)
+            if (case_1189_ == 0) then
               return rf()
-            elseif (case_1199_ == 1) then
+            elseif (case_1189_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1199_ == 2) then
+            elseif (case_1189_ == 2) then
               local result, input = ...
               if seen[input] then
                 return result
@@ -3121,18 +2944,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, input)
               end
             else
-              local _ = case_1199_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1198_"))
+              local _ = case_1189_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1188_"))
             end
           end
-          return fn_1198_
+          return fn_1188_
         end
-        return fn_1196_
-      elseif (case_1195_ == 1) then
+        return fn_1186_
+      elseif (case_1185_ == 1) then
         local coll = ...
         return seq_2a(lazy.distinct(coll))
       else
-        local _ = case_1195_
+        local _ = case_1185_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "distinct"))
       end
     end
@@ -3144,27 +2967,27 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function dedupe0(...)
-      local case_1203_ = select("#", ...)
-      if (case_1203_ == 0) then
-        local function fn_1204_(...)
+      local case_1193_ = select("#", ...)
+      if (case_1193_ == 0) then
+        local function fn_1194_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1204_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1194_"))
             else
             end
           end
           local none = {}
           local pv = none
-          local function fn_1206_(...)
-            local case_1207_ = select("#", ...)
-            if (case_1207_ == 0) then
+          local function fn_1196_(...)
+            local case_1197_ = select("#", ...)
+            if (case_1197_ == 0) then
               return rf()
-            elseif (case_1207_ == 1) then
+            elseif (case_1197_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1207_ == 2) then
+            elseif (case_1197_ == 2) then
               local result, input = ...
               local prior = pv
               pv = input
@@ -3174,18 +2997,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, input)
               end
             else
-              local _ = case_1207_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1206_"))
+              local _ = case_1197_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1196_"))
             end
           end
-          return fn_1206_
+          return fn_1196_
         end
-        return fn_1204_
-      elseif (case_1203_ == 1) then
+        return fn_1194_
+      elseif (case_1193_ == 1) then
         local coll = ...
         return core.sequence(dedupe0(), coll)
       else
-        local _ = case_1203_
+        local _ = case_1193_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "dedupe"))
       end
     end
@@ -3197,23 +3020,23 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function random_sample0(...)
-      local case_1211_ = select("#", ...)
-      if (case_1211_ == 0) then
+      local case_1201_ = select("#", ...)
+      if (case_1201_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "random-sample"))
-      elseif (case_1211_ == 1) then
+      elseif (case_1201_ == 1) then
         local prob = ...
-        local function _1212_()
+        local function _1202_()
           return (math.random() < prob)
         end
-        return filter(_1212_)
-      elseif (case_1211_ == 2) then
+        return filter(_1202_)
+      elseif (case_1201_ == 2) then
         local prob, coll = ...
-        local function _1213_()
+        local function _1203_()
           return (math.random() < prob)
         end
-        return filter(_1213_, coll)
+        return filter(_1203_, coll)
       else
-        local _ = case_1211_
+        local _ = case_1201_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "random-sample"))
       end
     end
@@ -3297,17 +3120,17 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function remove0(...)
-      local case_1219_ = select("#", ...)
-      if (case_1219_ == 0) then
+      local case_1209_ = select("#", ...)
+      if (case_1209_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "remove"))
-      elseif (case_1219_ == 1) then
+      elseif (case_1209_ == 1) then
         local pred = ...
         return filter(complement(pred))
-      elseif (case_1219_ == 2) then
+      elseif (case_1209_ == 2) then
         local pred, coll = ...
         return seq_2a(lazy.remove(pred, coll))
       else
-        local _ = case_1219_
+        local _ = case_1209_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "remove"))
       end
     end
@@ -3355,11 +3178,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function repeatedly0(...)
-      local _let_1223_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1223_.list
-      local _let_1224_ = list_38_auto(...)
-      local f = _let_1224_[1]
-      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1224_, 2)
+      local _let_1213_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1213_.list
+      local _let_1214_ = list_38_auto(...)
+      local f = _let_1214_[1]
+      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1214_, 2)
       return seq_2a(apply(lazy.repeatedly, f, args))
     end
     v_27_auto = repeatedly0
@@ -3388,23 +3211,23 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function interleave0(...)
-      local case_1226_ = select("#", ...)
-      if (case_1226_ == 0) then
+      local case_1216_ = select("#", ...)
+      if (case_1216_ == 0) then
         return seq_2a(lazy.interleave())
-      elseif (case_1226_ == 1) then
+      elseif (case_1216_ == 1) then
         local s = ...
         return seq_2a(lazy.interleave(s))
-      elseif (case_1226_ == 2) then
+      elseif (case_1216_ == 2) then
         local s1, s2 = ...
         return seq_2a(lazy.interleave(s1, s2))
       else
-        local _ = case_1226_
-        local _let_1227_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1227_.list
-        local _let_1228_ = list_38_auto(...)
-        local s1 = _let_1228_[1]
-        local s2 = _let_1228_[2]
-        local ss = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1228_, 3)
+        local _ = case_1216_
+        local _let_1217_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1217_.list
+        local _let_1218_ = list_38_auto(...)
+        local s1 = _let_1218_[1]
+        local s2 = _let_1218_[2]
+        local ss = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1218_, 3)
         return seq_2a(apply(lazy.interleave, s1, s2, ss))
       end
     end
@@ -3416,29 +3239,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function interpose0(...)
-      local case_1230_ = select("#", ...)
-      if (case_1230_ == 0) then
+      local case_1220_ = select("#", ...)
+      if (case_1220_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "interpose"))
-      elseif (case_1230_ == 1) then
+      elseif (case_1220_ == 1) then
         local sep = ...
-        local function fn_1231_(...)
+        local function fn_1221_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1231_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1221_"))
             else
             end
           end
           local started = false
-          local function fn_1233_(...)
-            local case_1234_ = select("#", ...)
-            if (case_1234_ == 0) then
+          local function fn_1223_(...)
+            local case_1224_ = select("#", ...)
+            if (case_1224_ == 0) then
               return rf()
-            elseif (case_1234_ == 1) then
+            elseif (case_1224_ == 1) then
               local result = ...
               return rf(result)
-            elseif (case_1234_ == 2) then
+            elseif (case_1224_ == 2) then
               local result, input = ...
               if started then
                 local sepr = rf(result, sep)
@@ -3452,18 +3275,18 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
                 return rf(result, input)
               end
             else
-              local _ = case_1234_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1233_"))
+              local _ = case_1224_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1223_"))
             end
           end
-          return fn_1233_
+          return fn_1223_
         end
-        return fn_1231_
-      elseif (case_1230_ == 2) then
+        return fn_1221_
+      elseif (case_1220_ == 2) then
         local separator, coll = ...
         return seq_2a(lazy.interpose(separator, coll))
       else
-        local _ = case_1230_
+        local _ = case_1220_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "interpose"))
       end
     end
@@ -3475,62 +3298,62 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function halt_when0(...)
-      local case_1239_ = select("#", ...)
-      if (case_1239_ == 0) then
+      local case_1229_ = select("#", ...)
+      if (case_1229_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "halt-when"))
-      elseif (case_1239_ == 1) then
+      elseif (case_1229_ == 1) then
         local pred = ...
         return halt_when0(pred, nil)
-      elseif (case_1239_ == 2) then
+      elseif (case_1229_ == 2) then
         local pred, retf = ...
-        local function fn_1240_(...)
+        local function fn_1230_(...)
           local rf = ...
           do
             local cnt_54_auto = select("#", ...)
             if (1 ~= cnt_54_auto) then
-              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1240_"))
+              error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1230_"))
             else
             end
           end
           local halt
-          local function _1242_()
+          local function _1232_()
             return "#<halt>"
           end
-          halt = setmetatable({}, {__fennelview = _1242_})
-          local function fn_1243_(...)
-            local case_1244_ = select("#", ...)
-            if (case_1244_ == 0) then
+          halt = setmetatable({}, {__fennelview = _1232_})
+          local function fn_1233_(...)
+            local case_1234_ = select("#", ...)
+            if (case_1234_ == 0) then
               return rf()
-            elseif (case_1244_ == 1) then
+            elseif (case_1234_ == 1) then
               local result = ...
               if (map_3f(result) and contains_3f(result, halt)) then
                 return result.value
               else
                 return rf(result)
               end
-            elseif (case_1244_ == 2) then
+            elseif (case_1234_ == 2) then
               local result, input = ...
               if pred(input) then
-                local _1246_
+                local _1236_
                 if retf then
-                  _1246_ = retf(rf(result), input)
+                  _1236_ = retf(rf(result), input)
                 else
-                  _1246_ = input
+                  _1236_ = input
                 end
-                return core.reduced({[halt] = true, value = _1246_})
+                return core.reduced({[halt] = true, value = _1236_})
               else
                 return rf(result, input)
               end
             else
-              local _ = case_1244_
-              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1243_"))
+              local _ = case_1234_
+              return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1233_"))
             end
           end
-          return fn_1243_
+          return fn_1233_
         end
-        return fn_1240_
+        return fn_1230_
       else
-        local _ = case_1239_
+        local _ = case_1229_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "halt-when"))
       end
     end
@@ -3615,9 +3438,9 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       assert((map_3f(coll) or empty_3f(coll)), "expected a map")
-      local case_1257_ = coll[key]
-      if (nil ~= case_1257_) then
-        local v = case_1257_
+      local case_1247_ = coll[key]
+      if (nil ~= case_1247_) then
+        local v = case_1247_
         return {key, v}
       else
         return nil
@@ -3631,31 +3454,31 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function sort0(...)
-      local case_1259_ = select("#", ...)
-      if (case_1259_ == 0) then
+      local case_1249_ = select("#", ...)
+      if (case_1249_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "sort"))
-      elseif (case_1259_ == 1) then
+      elseif (case_1249_ == 1) then
         local coll = ...
-        local case_1260_ = seq(coll)
-        if (nil ~= case_1260_) then
-          local s = case_1260_
+        local case_1250_ = seq(coll)
+        if (nil ~= case_1250_) then
+          local s = case_1250_
           return seq(itable.sort(vec(s)))
         else
-          local _ = case_1260_
+          local _ = case_1250_
           return list()
         end
-      elseif (case_1259_ == 2) then
+      elseif (case_1249_ == 2) then
         local comparator, coll = ...
-        local case_1262_ = seq(coll)
-        if (nil ~= case_1262_) then
-          local s = case_1262_
+        local case_1252_ = seq(coll)
+        if (nil ~= case_1252_) then
+          local s = case_1252_
           return seq(itable.sort(vec(s), comparator))
         else
-          local _ = case_1262_
+          local _ = case_1252_
           return list()
         end
       else
-        local _ = case_1259_
+        local _ = case_1249_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "sort"))
       end
     end
@@ -3667,19 +3490,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function reduce0(...)
-      local case_1266_ = select("#", ...)
-      if (case_1266_ == 0) then
+      local case_1256_ = select("#", ...)
+      if (case_1256_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "reduce"))
-      elseif (case_1266_ == 1) then
+      elseif (case_1256_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "reduce"))
-      elseif (case_1266_ == 2) then
+      elseif (case_1256_ == 2) then
         local f, coll = ...
         return lazy.reduce(f, seq(coll))
-      elseif (case_1266_ == 3) then
+      elseif (case_1256_ == 3) then
         local f, val, coll = ...
         return lazy.reduce(f, val, seq(coll))
       else
-        local _ = case_1266_
+        local _ = case_1256_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "reduce"))
       end
     end
@@ -3700,10 +3523,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       local tmp_9_ = rdc.reduced(value)
-      local function _1269_(_241)
+      local function _1259_(_241)
         return _241:unbox()
       end
-      getmetatable(tmp_9_)["cljlib/deref"] = _1269_
+      getmetatable(tmp_9_)["cljlib/deref"] = _1259_
       return tmp_9_
     end
     v_27_auto = reduced0
@@ -3782,12 +3605,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       else
       end
     end
-    local function fn_1276_(...)
+    local function fn_1266_(...)
       local a0, b = ...
       do
         local cnt_54_auto = select("#", ...)
         if (2 ~= cnt_54_auto) then
-          error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1276_"))
+          error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1266_"))
         else
         end
       end
@@ -3798,7 +3621,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         return ret
       end
     end
-    return fn_1276_
+    return fn_1266_
   end
   preserving_reduced = preserving_reduced0
   local cat
@@ -3814,22 +3637,22 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       local rrf = preserving_reduced(rf)
-      local function fn_1280_(...)
-        local case_1281_ = select("#", ...)
-        if (case_1281_ == 0) then
+      local function fn_1270_(...)
+        local case_1271_ = select("#", ...)
+        if (case_1271_ == 0) then
           return rf()
-        elseif (case_1281_ == 1) then
+        elseif (case_1271_ == 1) then
           local result = ...
           return rf(result)
-        elseif (case_1281_ == 2) then
+        elseif (case_1271_ == 2) then
           local result, input = ...
           return reduce(rrf, result, input)
         else
-          local _ = case_1281_
-          return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1280_"))
+          local _ = case_1271_
+          return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1270_"))
         end
       end
-      return fn_1280_
+      return fn_1270_
     end
     v_27_auto = cat0
     core["cat"] = v_27_auto
@@ -3848,19 +3671,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       if map_3f(s) then
-        local function _1285_(res, _1284_)
-          local k = _1284_[1]
-          local v = _1284_[2]
+        local function _1275_(res, _1274_)
+          local k = _1274_[1]
+          local v = _1274_[2]
           return f(res, k, v)
         end
-        return reduce(_1285_, val, seq(s))
+        return reduce(_1275_, val, seq(s))
       else
-        local function _1287_(res, _1286_)
-          local k = _1286_[1]
-          local v = _1286_[2]
+        local function _1277_(res, _1276_)
+          local k = _1276_[1]
+          local v = _1276_[2]
           return f(res, k, v)
         end
-        return reduce(_1287_, val, map(vector, drop(1, range()), seq(s)))
+        return reduce(_1277_, val, map(vector, drop(1, range()), seq(s)))
       end
     end
     v_27_auto = reduce_kv0
@@ -3871,32 +3694,32 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function completing0(...)
-      local case_1289_ = select("#", ...)
-      if (case_1289_ == 0) then
+      local case_1279_ = select("#", ...)
+      if (case_1279_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "completing"))
-      elseif (case_1289_ == 1) then
+      elseif (case_1279_ == 1) then
         local f = ...
         return completing0(f, identity)
-      elseif (case_1289_ == 2) then
+      elseif (case_1279_ == 2) then
         local f, cf = ...
-        local function fn_1290_(...)
-          local case_1291_ = select("#", ...)
-          if (case_1291_ == 0) then
+        local function fn_1280_(...)
+          local case_1281_ = select("#", ...)
+          if (case_1281_ == 0) then
             return f()
-          elseif (case_1291_ == 1) then
+          elseif (case_1281_ == 1) then
             local x = ...
             return cf(x)
-          elseif (case_1291_ == 2) then
+          elseif (case_1281_ == 2) then
             local x, y = ...
             return f(x, y)
           else
-            local _ = case_1291_
-            return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1290_"))
+            local _ = case_1281_
+            return error(("Wrong number of args (%s) passed to %s"):format(_, "fn_1280_"))
           end
         end
-        return fn_1290_
+        return fn_1280_
       else
-        local _ = case_1289_
+        local _ = case_1279_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "completing"))
       end
     end
@@ -3908,22 +3731,22 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function transduce0(...)
-      local case_1297_ = select("#", ...)
-      if (case_1297_ == 0) then
+      local case_1287_ = select("#", ...)
+      if (case_1287_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "transduce"))
-      elseif (case_1297_ == 1) then
+      elseif (case_1287_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "transduce"))
-      elseif (case_1297_ == 2) then
+      elseif (case_1287_ == 2) then
         return error(("Wrong number of args (%s) passed to %s"):format(2, "transduce"))
-      elseif (case_1297_ == 3) then
+      elseif (case_1287_ == 3) then
         local xform, f, coll = ...
         return transduce0(xform, f, f(), coll)
-      elseif (case_1297_ == 4) then
+      elseif (case_1287_ == 4) then
         local xform, f, init, coll = ...
         local f0 = xform(f)
         return f0(reduce(f0, init, seq(coll)))
       else
-        local _ = case_1297_
+        local _ = case_1287_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "transduce"))
       end
     end
@@ -3935,23 +3758,23 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function sequence0(...)
-      local case_1299_ = select("#", ...)
-      if (case_1299_ == 0) then
+      local case_1289_ = select("#", ...)
+      if (case_1289_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "sequence"))
-      elseif (case_1299_ == 1) then
+      elseif (case_1289_ == 1) then
         local coll = ...
         if seq_3f(coll) then
           return coll
         else
           return (seq(coll) or list())
         end
-      elseif (case_1299_ == 2) then
+      elseif (case_1289_ == 2) then
         local xform, coll = ...
         local f
-        local function _1301_(_241, _242)
+        local function _1291_(_241, _242)
           return cons(_242, _241)
         end
-        f = xform(completing(_1301_))
+        f = xform(completing(_1291_))
         local function step(coll0)
           local val_101_auto = seq(coll0)
           if (nil ~= val_101_auto) then
@@ -3960,10 +3783,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             if reduced_3f(res) then
               return f(deref(res))
             elseif seq_3f(res) then
-              local function _1302_()
+              local function _1292_()
                 return step(rest(s))
               end
-              return concat(res, lazy_seq_2a(_1302_))
+              return concat(res, lazy_seq_2a(_1292_))
             elseif "else" then
               return step(rest(s))
             else
@@ -3975,28 +3798,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return (step(coll) or list())
       else
-        local _ = case_1299_
-        local _let_1305_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1305_.list
-        local _let_1306_ = list_38_auto(...)
-        local xform = _let_1306_[1]
-        local coll = _let_1306_[2]
-        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1306_, 3)
+        local _ = case_1289_
+        local _let_1295_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1295_.list
+        local _let_1296_ = list_38_auto(...)
+        local xform = _let_1296_[1]
+        local coll = _let_1296_[2]
+        local colls = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1296_, 3)
         local f
-        local function _1307_(_241, _242)
+        local function _1297_(_241, _242)
           return cons(_242, _241)
         end
-        f = xform(completing(_1307_))
+        f = xform(completing(_1297_))
         local function step(colls0)
           if every_3f(seq, colls0) then
             local res = apply(f, nil, map(first, colls0))
             if reduced_3f(res) then
               return f(deref(res))
             elseif seq_3f(res) then
-              local function _1308_()
+              local function _1298_()
                 return step(map(rest, colls0))
               end
-              return concat(res, lazy_seq_2a(_1308_))
+              return concat(res, lazy_seq_2a(_1298_))
             elseif "else" then
               return step(map(rest, colls0))
             else
@@ -4014,27 +3837,27 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
     sequence = v_27_auto
   end
   local function map__3etransient(immutable)
-    local function _1312_(map0)
+    local function _1302_(map0)
       local removed = setmetatable({}, {__index = deep_index})
-      local function _1313_(_, k)
+      local function _1303_(_, k)
         if not removed[k] then
           return map0[k]
         else
           return nil
         end
       end
-      local function _1315_()
+      local function _1305_()
         return error("can't `conj` onto transient map, use `conj!`")
       end
-      local function _1316_()
+      local function _1306_()
         return error("can't `assoc` onto transient map, use `assoc!`")
       end
-      local function _1317_()
+      local function _1307_()
         return error("can't `dissoc` onto transient map, use `dissoc!`")
       end
-      local function _1319_(tmap, _1318_)
-        local k = _1318_[1]
-        local v = _1318_[2]
+      local function _1309_(tmap, _1308_)
+        local k = _1308_[1]
+        local v = _1308_[2]
         if (nil == v) then
           removed[k] = true
         else
@@ -4043,7 +3866,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         tmap[k] = v
         return tmap
       end
-      local function _1321_(tmap, ...)
+      local function _1311_(tmap, ...)
         for i = 1, select("#", ...), 2 do
           local k, v = select(i, ...)
           tmap[k] = v
@@ -4055,7 +3878,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return tmap
       end
-      local function _1323_(tmap, ...)
+      local function _1313_(tmap, ...)
         for i = 1, select("#", ...) do
           local k = select(i, ...)
           tmap[k] = nil
@@ -4063,7 +3886,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return tmap
       end
-      local function _1324_(tmap)
+      local function _1314_(tmap)
         local t
         do
           local tbl_21_
@@ -4090,7 +3913,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         for k in pairs(removed) do
           t[k] = nil
         end
-        local function _1327_()
+        local function _1317_()
           local tbl_26_ = {}
           local i_27_ = 0
           for k in pairs_2a(tmap) do
@@ -4103,53 +3926,53 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
           return tbl_26_
         end
-        for _, k in ipairs(_1327_()) do
+        for _, k in ipairs(_1317_()) do
           tmap[k] = nil
         end
-        local function _1329_()
+        local function _1319_()
           return error("attempt to use transient after it was persistet")
         end
-        local function _1330_()
+        local function _1320_()
           return error("attempt to use transient after it was persistet")
         end
-        setmetatable(tmap, {__index = _1329_, __newindex = _1330_})
+        setmetatable(tmap, {__index = _1319_, __newindex = _1320_})
         return immutable(itable(t))
       end
-      return setmetatable({}, {__index = _1313_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _1315_, ["cljlib/assoc"] = _1316_, ["cljlib/dissoc"] = _1317_, ["cljlib/conj!"] = _1319_, ["cljlib/assoc!"] = _1321_, ["cljlib/dissoc!"] = _1323_, ["cljlib/persistent!"] = _1324_})
+      return setmetatable({}, {__index = _1303_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _1305_, ["cljlib/assoc"] = _1306_, ["cljlib/dissoc"] = _1307_, ["cljlib/conj!"] = _1309_, ["cljlib/assoc!"] = _1311_, ["cljlib/dissoc!"] = _1313_, ["cljlib/persistent!"] = _1314_})
     end
-    return _1312_
+    return _1302_
   end
   local function hash_map_2a(x)
     do
-      local case_1331_ = getmetatable(x)
-      if (nil ~= case_1331_) then
-        local mt = case_1331_
+      local case_1321_ = getmetatable(x)
+      if (nil ~= case_1321_) then
+        local mt = case_1321_
         mt["cljlib/type"] = "hash-map"
         mt["cljlib/editable"] = true
-        local function _1333_(t, _1332_, ...)
-          local k = _1332_[1]
-          local v = _1332_[2]
-          local function _1334_(...)
+        local function _1323_(t, _1322_, ...)
+          local k = _1322_[1]
+          local v = _1322_[2]
+          local function _1324_(...)
             local kvs = {}
-            for _, _1335_ in ipairs_2a({...}) do
-              local k0 = _1335_[1]
-              local v0 = _1335_[2]
+            for _, _1325_ in ipairs_2a({...}) do
+              local k0 = _1325_[1]
+              local v0 = _1325_[2]
               table.insert(kvs, k0)
               table.insert(kvs, v0)
               kvs = kvs
             end
             return kvs
           end
-          return apply(core.assoc, t, k, v, _1334_(...))
+          return apply(core.assoc, t, k, v, _1324_(...))
         end
-        mt["cljlib/conj"] = _1333_
+        mt["cljlib/conj"] = _1323_
         mt["cljlib/transient"] = map__3etransient(hash_map_2a)
-        local function _1336_()
+        local function _1326_()
           return hash_map_2a(itable({}))
         end
-        mt["cljlib/empty"] = _1336_
+        mt["cljlib/empty"] = _1326_
       else
-        local _ = case_1331_
+        local _ = case_1321_
         hash_map_2a(setmetatable(x, {}))
       end
     end
@@ -4159,28 +3982,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function assoc0(...)
-      local case_1340_ = select("#", ...)
-      if (case_1340_ == 0) then
+      local case_1330_ = select("#", ...)
+      if (case_1330_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "assoc"))
-      elseif (case_1340_ == 1) then
+      elseif (case_1330_ == 1) then
         local tbl = ...
         return hash_map_2a(itable({}))
-      elseif (case_1340_ == 2) then
+      elseif (case_1330_ == 2) then
         return error(("Wrong number of args (%s) passed to %s"):format(2, "assoc"))
-      elseif (case_1340_ == 3) then
+      elseif (case_1330_ == 3) then
         local tbl, k, v = ...
         assert((nil_3f(tbl) or map_3f(tbl) or empty_3f(tbl)), "expected a map")
         assert(not nil_3f(k), "attempt to use nil as key")
         return hash_map_2a(itable.assoc((tbl or {}), k, v))
       else
-        local _ = case_1340_
-        local _let_1341_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1341_.list
-        local _let_1342_ = list_38_auto(...)
-        local tbl = _let_1342_[1]
-        local k = _let_1342_[2]
-        local v = _let_1342_[3]
-        local kvs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1342_, 4)
+        local _ = case_1330_
+        local _let_1331_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1331_.list
+        local _let_1332_ = list_38_auto(...)
+        local tbl = _let_1332_[1]
+        local k = _let_1332_[2]
+        local v = _let_1332_[3]
+        local kvs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1332_, 4)
         assert((nil_3f(tbl) or map_3f(tbl) or empty_3f(tbl)), "expected a map")
         assert(not nil_3f(k), "attempt to use nil as key")
         return hash_map_2a(apply(itable.assoc, (tbl or {}), k, v, kvs))
@@ -4251,10 +4074,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function hash_map0(...)
-      local _let_1347_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1347_.list
-      local _let_1348_ = list_38_auto(...)
-      local kvs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1348_, 1)
+      local _let_1337_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1337_.list
+      local _let_1338_ = list_38_auto(...)
+      local kvs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1338_, 1)
       return apply(assoc, {}, kvs)
     end
     v_27_auto = hash_map0
@@ -4265,20 +4088,20 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function get0(...)
-      local case_1350_ = select("#", ...)
-      if (case_1350_ == 0) then
+      local case_1340_ = select("#", ...)
+      if (case_1340_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "get"))
-      elseif (case_1350_ == 1) then
+      elseif (case_1340_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "get"))
-      elseif (case_1350_ == 2) then
+      elseif (case_1340_ == 2) then
         local tbl, key = ...
         return get0(tbl, key, nil)
-      elseif (case_1350_ == 3) then
+      elseif (case_1340_ == 3) then
         local tbl, key, not_found = ...
         assert((map_3f(tbl) or empty_3f(tbl)), "expected a map")
         return (tbl[key] or not_found)
       else
-        local _ = case_1350_
+        local _ = case_1340_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "get"))
       end
     end
@@ -4290,32 +4113,32 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function get_in0(...)
-      local case_1353_ = select("#", ...)
-      if (case_1353_ == 0) then
+      local case_1343_ = select("#", ...)
+      if (case_1343_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "get-in"))
-      elseif (case_1353_ == 1) then
+      elseif (case_1343_ == 1) then
         return error(("Wrong number of args (%s) passed to %s"):format(1, "get-in"))
-      elseif (case_1353_ == 2) then
+      elseif (case_1343_ == 2) then
         local tbl, keys0 = ...
         return get_in0(tbl, keys0, nil)
-      elseif (case_1353_ == 3) then
+      elseif (case_1343_ == 3) then
         local tbl, keys0, not_found = ...
         assert((map_3f(tbl) or empty_3f(tbl)), "expected a map")
         local res, t, done = tbl, tbl, nil
         for _, k in ipairs_2a(keys0) do
           if done then break end
-          local case_1354_ = t[k]
-          if (nil ~= case_1354_) then
-            local v = case_1354_
+          local case_1344_ = t[k]
+          if (nil ~= case_1344_) then
+            local v = case_1344_
             res, t = v, v
           else
-            local _0 = case_1354_
+            local _0 = case_1344_
             res, done = not_found, true
           end
         end
         return res
       else
-        local _ = case_1353_
+        local _ = case_1343_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "get-in"))
       end
     end
@@ -4327,28 +4150,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function dissoc0(...)
-      local case_1357_ = select("#", ...)
-      if (case_1357_ == 0) then
+      local case_1347_ = select("#", ...)
+      if (case_1347_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "dissoc"))
-      elseif (case_1357_ == 1) then
+      elseif (case_1347_ == 1) then
         local tbl = ...
         return tbl
-      elseif (case_1357_ == 2) then
+      elseif (case_1347_ == 2) then
         local tbl, key = ...
         assert((map_3f(tbl) or empty_3f(tbl)), "expected a map")
-        local function _1358_(...)
+        local function _1348_(...)
           tbl[key] = nil
           return tbl
         end
-        return hash_map_2a(_1358_(...))
+        return hash_map_2a(_1348_(...))
       else
-        local _ = case_1357_
-        local _let_1359_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1359_.list
-        local _let_1360_ = list_38_auto(...)
-        local tbl = _let_1360_[1]
-        local key = _let_1360_[2]
-        local keys0 = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1360_, 3)
+        local _ = case_1347_
+        local _let_1349_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1349_.list
+        local _let_1350_ = list_38_auto(...)
+        local tbl = _let_1350_[1]
+        local key = _let_1350_[2]
+        local keys0 = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1350_, 3)
         return apply(dissoc0, dissoc0(tbl, key), keys0)
       end
     end
@@ -4360,12 +4183,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function merge0(...)
-      local _let_1362_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1362_.list
-      local _let_1363_ = list_38_auto(...)
-      local maps = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1363_, 1)
+      local _let_1352_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1352_.list
+      local _let_1353_ = list_38_auto(...)
+      local maps = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1353_, 1)
       if some(identity, maps) then
-        local function _1364_(a0, b)
+        local function _1354_(a0, b)
           local tbl_21_ = a0
           for k, v in pairs_2a(b) do
             local k_22_, v_23_ = k, v
@@ -4376,7 +4199,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
           return tbl_21_
         end
-        return hash_map_2a(itable(reduce(_1364_, {}, maps)))
+        return hash_map_2a(itable(reduce(_1354_, {}, maps)))
       else
         return nil
       end
@@ -4443,12 +4266,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function replace0(...)
-      local case_1370_ = select("#", ...)
-      if (case_1370_ == 0) then
+      local case_1360_ = select("#", ...)
+      if (case_1360_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "replace"))
-      elseif (case_1370_ == 1) then
+      elseif (case_1360_ == 1) then
         local smap = ...
-        local function _1371_(_241)
+        local function _1361_(_241)
           local val_97_auto = find(smap, _241)
           if val_97_auto then
             local e = val_97_auto
@@ -4457,11 +4280,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             return _241
           end
         end
-        return map(_1371_)
-      elseif (case_1370_ == 2) then
+        return map(_1361_)
+      elseif (case_1360_ == 2) then
         local smap, coll = ...
         if vector_3f(coll) then
-          local function _1373_(res, v)
+          local function _1363_(res, v)
             local val_97_auto = find(smap, v)
             if val_97_auto then
               local e = val_97_auto
@@ -4472,9 +4295,9 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
               return res
             end
           end
-          return vec_2a(itable(reduce(_1373_, {}, coll)))
+          return vec_2a(itable(reduce(_1363_, {}, coll)))
         else
-          local function _1375_(_241)
+          local function _1365_(_241)
             local val_97_auto = find(smap, _241)
             if val_97_auto then
               local e = val_97_auto
@@ -4483,10 +4306,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
               return _241
             end
           end
-          return map(_1375_, coll)
+          return map(_1365_, coll)
         end
       else
-        local _ = case_1370_
+        local _ = case_1360_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "replace"))
       end
     end
@@ -4498,20 +4321,20 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function conj0(...)
-      local case_1379_ = select("#", ...)
-      if (case_1379_ == 0) then
+      local case_1369_ = select("#", ...)
+      if (case_1369_ == 0) then
         return vector()
-      elseif (case_1379_ == 1) then
+      elseif (case_1369_ == 1) then
         local s = ...
         return s
-      elseif (case_1379_ == 2) then
+      elseif (case_1369_ == 2) then
         local s, x = ...
-        local case_1380_ = getmetatable(s)
-        if ((_G.type(case_1380_) == "table") and (nil ~= case_1380_["cljlib/conj"])) then
-          local f = case_1380_["cljlib/conj"]
+        local case_1370_ = getmetatable(s)
+        if ((_G.type(case_1370_) == "table") and (nil ~= case_1370_["cljlib/conj"])) then
+          local f = case_1370_["cljlib/conj"]
           return f(s, x)
         else
-          local _ = case_1380_
+          local _ = case_1370_
           if vector_3f(s) then
             return vec_2a(itable.insert(s, x))
           elseif map_3f(s) then
@@ -4525,13 +4348,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
         end
       else
-        local _ = case_1379_
-        local _let_1383_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1383_.list
-        local _let_1384_ = list_38_auto(...)
-        local s = _let_1384_[1]
-        local x = _let_1384_[2]
-        local xs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1384_, 3)
+        local _ = case_1369_
+        local _let_1373_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1373_.list
+        local _let_1374_ = list_38_auto(...)
+        local s = _let_1374_[1]
+        local x = _let_1374_[2]
+        local xs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1374_, 3)
         return apply(conj0, conj0(s, x), xs)
       end
     end
@@ -4543,36 +4366,36 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function disj0(...)
-      local case_1386_ = select("#", ...)
-      if (case_1386_ == 0) then
+      local case_1376_ = select("#", ...)
+      if (case_1376_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "disj"))
-      elseif (case_1386_ == 1) then
+      elseif (case_1376_ == 1) then
         local Set = ...
         return Set
-      elseif (case_1386_ == 2) then
+      elseif (case_1376_ == 2) then
         local Set, key = ...
-        local case_1387_ = getmetatable(Set)
-        if ((_G.type(case_1387_) == "table") and (case_1387_["cljlib/type"] == "hash-set") and (nil ~= case_1387_["cljlib/disj"])) then
-          local f = case_1387_["cljlib/disj"]
+        local case_1377_ = getmetatable(Set)
+        if ((_G.type(case_1377_) == "table") and (case_1377_["cljlib/type"] == "hash-set") and (nil ~= case_1377_["cljlib/disj"])) then
+          local f = case_1377_["cljlib/disj"]
           return f(Set, key)
         else
-          local _ = case_1387_
+          local _ = case_1377_
           return error(("disj is not supported on " .. class(Set)), 2)
         end
       else
-        local _ = case_1386_
-        local _let_1389_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1389_.list
-        local _let_1390_ = list_38_auto(...)
-        local Set = _let_1390_[1]
-        local key = _let_1390_[2]
-        local keys0 = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1390_, 3)
-        local case_1391_ = getmetatable(Set)
-        if ((_G.type(case_1391_) == "table") and (case_1391_["cljlib/type"] == "hash-set") and (nil ~= case_1391_["cljlib/disj"])) then
-          local f = case_1391_["cljlib/disj"]
+        local _ = case_1376_
+        local _let_1379_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1379_.list
+        local _let_1380_ = list_38_auto(...)
+        local Set = _let_1380_[1]
+        local key = _let_1380_[2]
+        local keys0 = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1380_, 3)
+        local case_1381_ = getmetatable(Set)
+        if ((_G.type(case_1381_) == "table") and (case_1381_["cljlib/type"] == "hash-set") and (nil ~= case_1381_["cljlib/disj"])) then
+          local f = case_1381_["cljlib/disj"]
           return apply(f, Set, key, keys0)
         else
-          local _0 = case_1391_
+          local _0 = case_1381_
           return error(("disj is not supported on " .. class(Set)), 2)
         end
       end
@@ -4593,21 +4416,21 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1395_ = getmetatable(coll)
-      if ((_G.type(case_1395_) == "table") and (case_1395_["cljlib/type"] == "seq")) then
-        local case_1396_ = seq(coll)
-        if (nil ~= case_1396_) then
-          local s = case_1396_
+      local case_1385_ = getmetatable(coll)
+      if ((_G.type(case_1385_) == "table") and (case_1385_["cljlib/type"] == "seq")) then
+        local case_1386_ = seq(coll)
+        if (nil ~= case_1386_) then
+          local s = case_1386_
           return drop(1, s)
         else
-          local _ = case_1396_
+          local _ = case_1386_
           return error("can't pop empty list", 2)
         end
-      elseif ((_G.type(case_1395_) == "table") and (nil ~= case_1395_["cljlib/pop"])) then
-        local f = case_1395_["cljlib/pop"]
+      elseif ((_G.type(case_1385_) == "table") and (nil ~= case_1385_["cljlib/pop"])) then
+        local f = case_1385_["cljlib/pop"]
         return f(coll)
       else
-        local _ = case_1395_
+        local _ = case_1385_
         return error(("pop is not supported on " .. class(coll)), 2)
       end
     end
@@ -4627,12 +4450,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1400_ = getmetatable(coll)
-      if ((_G.type(case_1400_) == "table") and (case_1400_["cljlib/editable"] == true) and (nil ~= case_1400_["cljlib/transient"])) then
-        local f = case_1400_["cljlib/transient"]
+      local case_1390_ = getmetatable(coll)
+      if ((_G.type(case_1390_) == "table") and (case_1390_["cljlib/editable"] == true) and (nil ~= case_1390_["cljlib/transient"])) then
+        local f = case_1390_["cljlib/transient"]
         return f(coll)
       else
-        local _ = case_1400_
+        local _ = case_1390_
         return error("expected editable collection", 2)
       end
     end
@@ -4644,29 +4467,29 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function conj_210(...)
-      local case_1402_ = select("#", ...)
-      if (case_1402_ == 0) then
+      local case_1392_ = select("#", ...)
+      if (case_1392_ == 0) then
         return transient(vec_2a({}))
-      elseif (case_1402_ == 1) then
+      elseif (case_1392_ == 1) then
         local coll = ...
         return coll
-      elseif (case_1402_ == 2) then
+      elseif (case_1392_ == 2) then
         local coll, x = ...
         do
-          local case_1403_ = getmetatable(coll)
-          if ((_G.type(case_1403_) == "table") and (case_1403_["cljlib/type"] == "transient") and (nil ~= case_1403_["cljlib/conj!"])) then
-            local f = case_1403_["cljlib/conj!"]
+          local case_1393_ = getmetatable(coll)
+          if ((_G.type(case_1393_) == "table") and (case_1393_["cljlib/type"] == "transient") and (nil ~= case_1393_["cljlib/conj!"])) then
+            local f = case_1393_["cljlib/conj!"]
             f(coll, x)
-          elseif ((_G.type(case_1403_) == "table") and (case_1403_["cljlib/type"] == "transient")) then
+          elseif ((_G.type(case_1393_) == "table") and (case_1393_["cljlib/type"] == "transient")) then
             error("unsupported transient operation", 2)
           else
-            local _ = case_1403_
+            local _ = case_1393_
             error("expected transient collection", 2)
           end
         end
         return coll
       else
-        local _ = case_1402_
+        local _ = case_1392_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "conj!"))
       end
     end
@@ -4678,21 +4501,21 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function assoc_210(...)
-      local _let_1406_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1406_.list
-      local _let_1407_ = list_38_auto(...)
-      local map0 = _let_1407_[1]
-      local k = _let_1407_[2]
-      local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1407_, 3)
+      local _let_1396_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1396_.list
+      local _let_1397_ = list_38_auto(...)
+      local map0 = _let_1397_[1]
+      local k = _let_1397_[2]
+      local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1397_, 3)
       do
-        local case_1408_ = getmetatable(map0)
-        if ((_G.type(case_1408_) == "table") and (case_1408_["cljlib/type"] == "transient") and (nil ~= case_1408_["cljlib/dissoc!"])) then
-          local f = case_1408_["cljlib/dissoc!"]
+        local case_1398_ = getmetatable(map0)
+        if ((_G.type(case_1398_) == "table") and (case_1398_["cljlib/type"] == "transient") and (nil ~= case_1398_["cljlib/dissoc!"])) then
+          local f = case_1398_["cljlib/dissoc!"]
           apply(f, map0, k, ks)
-        elseif ((_G.type(case_1408_) == "table") and (case_1408_["cljlib/type"] == "transient")) then
+        elseif ((_G.type(case_1398_) == "table") and (case_1398_["cljlib/type"] == "transient")) then
           error("unsupported transient operation", 2)
         else
-          local _ = case_1408_
+          local _ = case_1398_
           error("expected transient collection", 2)
         end
       end
@@ -4706,21 +4529,21 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function dissoc_210(...)
-      local _let_1410_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1410_.list
-      local _let_1411_ = list_38_auto(...)
-      local map0 = _let_1411_[1]
-      local k = _let_1411_[2]
-      local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1411_, 3)
+      local _let_1400_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1400_.list
+      local _let_1401_ = list_38_auto(...)
+      local map0 = _let_1401_[1]
+      local k = _let_1401_[2]
+      local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1401_, 3)
       do
-        local case_1412_ = getmetatable(map0)
-        if ((_G.type(case_1412_) == "table") and (case_1412_["cljlib/type"] == "transient") and (nil ~= case_1412_["cljlib/dissoc!"])) then
-          local f = case_1412_["cljlib/dissoc!"]
+        local case_1402_ = getmetatable(map0)
+        if ((_G.type(case_1402_) == "table") and (case_1402_["cljlib/type"] == "transient") and (nil ~= case_1402_["cljlib/dissoc!"])) then
+          local f = case_1402_["cljlib/dissoc!"]
           apply(f, map0, k, ks)
-        elseif ((_G.type(case_1412_) == "table") and (case_1412_["cljlib/type"] == "transient")) then
+        elseif ((_G.type(case_1402_) == "table") and (case_1402_["cljlib/type"] == "transient")) then
           error("unsupported transient operation", 2)
         else
-          local _ = case_1412_
+          local _ = case_1402_
           error("expected transient collection", 2)
         end
       end
@@ -4734,28 +4557,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function disj_210(...)
-      local case_1414_ = select("#", ...)
-      if (case_1414_ == 0) then
+      local case_1404_ = select("#", ...)
+      if (case_1404_ == 0) then
         return error(("Wrong number of args (%s) passed to %s"):format(0, "disj!"))
-      elseif (case_1414_ == 1) then
+      elseif (case_1404_ == 1) then
         local Set = ...
         return Set
       else
-        local _ = case_1414_
-        local _let_1415_ = require("io.gitlab.andreyorst.cljlib.core")
-        local list_38_auto = _let_1415_.list
-        local _let_1416_ = list_38_auto(...)
-        local Set = _let_1416_[1]
-        local key = _let_1416_[2]
-        local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1416_, 3)
-        local case_1417_ = getmetatable(Set)
-        if ((_G.type(case_1417_) == "table") and (case_1417_["cljlib/type"] == "transient") and (nil ~= case_1417_["cljlib/disj!"])) then
-          local f = case_1417_["cljlib/disj!"]
+        local _ = case_1404_
+        local _let_1405_ = require("io.gitlab.andreyorst.cljlib.core")
+        local list_38_auto = _let_1405_.list
+        local _let_1406_ = list_38_auto(...)
+        local Set = _let_1406_[1]
+        local key = _let_1406_[2]
+        local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1406_, 3)
+        local case_1407_ = getmetatable(Set)
+        if ((_G.type(case_1407_) == "table") and (case_1407_["cljlib/type"] == "transient") and (nil ~= case_1407_["cljlib/disj!"])) then
+          local f = case_1407_["cljlib/disj!"]
           return apply(f, Set, key, ks)
-        elseif ((_G.type(case_1417_) == "table") and (case_1417_["cljlib/type"] == "transient")) then
+        elseif ((_G.type(case_1407_) == "table") and (case_1407_["cljlib/type"] == "transient")) then
           return error("unsupported transient operation", 2)
         else
-          local _0 = case_1417_
+          local _0 = case_1407_
           return error("expected transient collection", 2)
         end
       end
@@ -4776,14 +4599,14 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1421_ = getmetatable(coll)
-      if ((_G.type(case_1421_) == "table") and (case_1421_["cljlib/type"] == "transient") and (nil ~= case_1421_["cljlib/pop!"])) then
-        local f = case_1421_["cljlib/pop!"]
+      local case_1411_ = getmetatable(coll)
+      if ((_G.type(case_1411_) == "table") and (case_1411_["cljlib/type"] == "transient") and (nil ~= case_1411_["cljlib/pop!"])) then
+        local f = case_1411_["cljlib/pop!"]
         return f(coll)
-      elseif ((_G.type(case_1421_) == "table") and (case_1421_["cljlib/type"] == "transient")) then
+      elseif ((_G.type(case_1411_) == "table") and (case_1411_["cljlib/type"] == "transient")) then
         return error("unsupported transient operation", 2)
       else
-        local _ = case_1421_
+        local _ = case_1411_
         return error("expected transient collection", 2)
       end
     end
@@ -4803,12 +4626,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1424_ = getmetatable(coll)
-      if ((_G.type(case_1424_) == "table") and (case_1424_["cljlib/type"] == "transient") and (nil ~= case_1424_["cljlib/persistent!"])) then
-        local f = case_1424_["cljlib/persistent!"]
+      local case_1414_ = getmetatable(coll)
+      if ((_G.type(case_1414_) == "table") and (case_1414_["cljlib/type"] == "transient") and (nil ~= case_1414_["cljlib/persistent!"])) then
+        local f = case_1414_["cljlib/persistent!"]
         return f(coll)
       else
-        local _ = case_1424_
+        local _ = case_1414_
         return error("expected transient collection", 2)
       end
     end
@@ -4820,32 +4643,32 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function into0(...)
-      local case_1426_ = select("#", ...)
-      if (case_1426_ == 0) then
+      local case_1416_ = select("#", ...)
+      if (case_1416_ == 0) then
         return vector()
-      elseif (case_1426_ == 1) then
+      elseif (case_1416_ == 1) then
         local to = ...
         return to
-      elseif (case_1426_ == 2) then
+      elseif (case_1416_ == 2) then
         local to, from = ...
-        local case_1427_ = getmetatable(to)
-        if ((_G.type(case_1427_) == "table") and (case_1427_["cljlib/editable"] == true)) then
+        local case_1417_ = getmetatable(to)
+        if ((_G.type(case_1417_) == "table") and (case_1417_["cljlib/editable"] == true)) then
           return persistent_21(reduce(conj_21, transient(to), from))
         else
-          local _ = case_1427_
+          local _ = case_1417_
           return reduce(conj, to, from)
         end
-      elseif (case_1426_ == 3) then
+      elseif (case_1416_ == 3) then
         local to, xform, from = ...
-        local case_1429_ = getmetatable(to)
-        if ((_G.type(case_1429_) == "table") and (case_1429_["cljlib/editable"] == true)) then
+        local case_1419_ = getmetatable(to)
+        if ((_G.type(case_1419_) == "table") and (case_1419_["cljlib/editable"] == true)) then
           return persistent_21(transduce(xform, conj_21, transient(to), from))
         else
-          local _ = case_1429_
+          local _ = case_1419_
           return transduce(xform, conj, to, from)
         end
       else
-        local _ = case_1426_
+        local _ = case_1416_
         return error(("Wrong number of args (%s) passed to %s"):format(_, "into"))
       end
     end
@@ -4858,13 +4681,13 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       return ("@set" .. inspector.seen[Set] .. "{...}")
     else
       local prefix
-      local _1432_
+      local _1422_
       if inspector["visible-cycle?"](Set) then
-        _1432_ = inspector.seen[Set]
+        _1422_ = inspector.seen[Set]
       else
-        _1432_ = ""
+        _1422_ = ""
       end
-      prefix = ("@set" .. _1432_ .. "{")
+      prefix = ("@set" .. _1422_ .. "{")
       local set_indent = #prefix
       local indent_str = string.rep(" ", set_indent)
       local lines
@@ -4887,28 +4710,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
     end
   end
   local function hash_set__3etransient(immutable)
-    local function _1436_(hset)
+    local function _1426_(hset)
       local removed = setmetatable({}, {__index = deep_index})
-      local function _1437_(_, k)
+      local function _1427_(_, k)
         if not removed[k] then
           return hset[k]
         else
           return nil
         end
       end
-      local function _1439_()
+      local function _1429_()
         return error("can't `conj` onto transient set, use `conj!`")
       end
-      local function _1440_()
+      local function _1430_()
         return error("can't `disj` a transient set, use `disj!`")
       end
-      local function _1441_()
+      local function _1431_()
         return error("can't `assoc` onto transient set, use `assoc!`")
       end
-      local function _1442_()
+      local function _1432_()
         return error("can't `dissoc` onto transient set, use `dissoc!`")
       end
-      local function _1443_(thset, v)
+      local function _1433_(thset, v)
         if (nil == v) then
           removed[v] = true
         else
@@ -4917,10 +4740,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         thset[v] = v
         return thset
       end
-      local function _1445_()
+      local function _1435_()
         return error("can't `dissoc!` a transient set")
       end
-      local function _1446_(thset, ...)
+      local function _1436_(thset, ...)
         for i = 1, select("#", ...) do
           local k = select(i, ...)
           thset[k] = nil
@@ -4928,7 +4751,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return thset
       end
-      local function _1447_(thset)
+      local function _1437_(thset)
         local t
         do
           local tbl_21_
@@ -4955,7 +4778,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         for k in pairs(removed) do
           t[k] = nil
         end
-        local function _1450_()
+        local function _1440_()
           local tbl_26_ = {}
           local i_27_ = 0
           for k in pairs_2a(thset) do
@@ -4968,30 +4791,30 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
           return tbl_26_
         end
-        for _, k in ipairs(_1450_()) do
+        for _, k in ipairs(_1440_()) do
           thset[k] = nil
         end
-        local function _1452_()
+        local function _1442_()
           return error("attempt to use transient after it was persistet")
         end
-        local function _1453_()
+        local function _1443_()
           return error("attempt to use transient after it was persistet")
         end
-        setmetatable(thset, {__index = _1452_, __newindex = _1453_})
+        setmetatable(thset, {__index = _1442_, __newindex = _1443_})
         return immutable(itable(t))
       end
-      return setmetatable({}, {__index = _1437_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _1439_, ["cljlib/disj"] = _1440_, ["cljlib/assoc"] = _1441_, ["cljlib/dissoc"] = _1442_, ["cljlib/conj!"] = _1443_, ["cljlib/assoc!"] = _1445_, ["cljlib/disj!"] = _1446_, ["cljlib/persistent!"] = _1447_})
+      return setmetatable({}, {__index = _1427_, ["cljlib/type"] = "transient", ["cljlib/conj"] = _1429_, ["cljlib/disj"] = _1430_, ["cljlib/assoc"] = _1431_, ["cljlib/dissoc"] = _1432_, ["cljlib/conj!"] = _1433_, ["cljlib/assoc!"] = _1435_, ["cljlib/disj!"] = _1436_, ["cljlib/persistent!"] = _1437_})
     end
-    return _1436_
+    return _1426_
   end
   local function hash_set_2a(x)
     do
-      local case_1454_ = getmetatable(x)
-      if (nil ~= case_1454_) then
-        local mt = case_1454_
+      local case_1444_ = getmetatable(x)
+      if (nil ~= case_1444_) then
+        local mt = case_1444_
         mt["cljlib/type"] = "hash-set"
-        local function _1455_(s, v, ...)
-          local function _1456_(...)
+        local function _1445_(s, v, ...)
+          local function _1446_(...)
             local res = {}
             for _, v0 in ipairs({...}) do
               table.insert(res, v0)
@@ -4999,10 +4822,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             end
             return res
           end
-          return hash_set_2a(itable.assoc(s, v, v, unpack_2a(_1456_(...))))
+          return hash_set_2a(itable.assoc(s, v, v, unpack_2a(_1446_(...))))
         end
-        mt["cljlib/conj"] = _1455_
-        local function _1457_(s, k, ...)
+        mt["cljlib/conj"] = _1445_
+        local function _1447_(s, k, ...)
           local to_remove
           do
             local tbl_21_ = setmetatable({[k] = true}, {__index = deep_index})
@@ -5015,7 +4838,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             end
             to_remove = tbl_21_
           end
-          local function _1459_(...)
+          local function _1449_(...)
             local res = {}
             for _, v in pairs(s) do
               if not to_remove[v] then
@@ -5026,28 +4849,28 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
             end
             return res
           end
-          return hash_set_2a(itable.assoc({}, unpack_2a(_1459_(...))))
+          return hash_set_2a(itable.assoc({}, unpack_2a(_1449_(...))))
         end
-        mt["cljlib/disj"] = _1457_
-        local function _1461_()
+        mt["cljlib/disj"] = _1447_
+        local function _1451_()
           return hash_set_2a(itable({}))
         end
-        mt["cljlib/empty"] = _1461_
+        mt["cljlib/empty"] = _1451_
         mt["cljlib/editable"] = true
         mt["cljlib/transient"] = hash_set__3etransient(hash_set_2a)
-        local function _1462_(s)
-          local function _1463_(_241)
+        local function _1452_(s)
+          local function _1453_(_241)
             if vector_3f(_241) then
               return _241[1]
             else
               return _241
             end
           end
-          return map(_1463_, s)
+          return map(_1453_, s)
         end
-        mt["cljlib/seq"] = _1462_
+        mt["cljlib/seq"] = _1452_
         mt["__fennelview"] = viewset
-        local function _1465_(s, i)
+        local function _1455_(s, i)
           local j = 1
           local vals0 = {}
           for v in pairs_2a(s) do
@@ -5059,9 +4882,9 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
           end
           return core["hash-set"](unpack_2a(vals0))
         end
-        mt["__fennelrest"] = _1465_
+        mt["__fennelrest"] = _1455_
       else
-        local _ = case_1454_
+        local _ = case_1444_
         hash_set_2a(setmetatable(x, {}))
       end
     end
@@ -5071,10 +4894,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function hash_set0(...)
-      local _let_1468_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1468_.list
-      local _let_1469_ = list_38_auto(...)
-      local xs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1469_, 1)
+      local _let_1458_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1458_.list
+      local _let_1459_ = list_38_auto(...)
+      local xs = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1459_, 1)
       local Set
       do
         local tbl_21_ = setmetatable({}, {__newindex = deep_newindex})
@@ -5105,11 +4928,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local case_1472_ = getmetatable(mf)
-      if ((_G.type(case_1472_) == "table") and (case_1472_["cljlib/type"] == "multifn")) then
+      local case_1462_ = getmetatable(mf)
+      if ((_G.type(case_1462_) == "table") and (case_1462_["cljlib/type"] == "multifn")) then
         return true
       else
-        local _ = case_1472_
+        local _ = case_1462_
         return false
       end
     end
@@ -5226,10 +5049,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       local date = lua_inst(s)
-      local function _1483_(_241)
+      local function _1473_(_241)
         return ("#<inst: %04d-%s.%03d-00:00>"):format(_241.year, os.date("%m-%dT%H:%M:%S", os.time(_241)), _241.msec)
       end
-      getmetatable(date)["__fennelview"] = _1483_
+      getmetatable(date)["__fennelview"] = _1473_
       return date
     end
     v_27_auto = inst0
@@ -5237,11 +5060,11 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
     inst = v_27_auto
   end
   local function start_task_runner(agent)
-    local function _1484_()
+    local function _1474_()
       while (agent.status == "ready") do
-        local _let_1485_ = a["<!"](agent.tasks)
-        local f = _let_1485_[1]
-        local args = _let_1485_[2]
+        local _let_1475_ = a["<!"](agent.tasks)
+        local f = _let_1475_[1]
+        local args = _let_1475_[2]
         local task_ok_3f, state_or_msg = pcall(apply, f, agent.state, args)
         local task_ok_3f0, state_or_msg0
         if task_ok_3f then
@@ -5254,12 +5077,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
           task_ok_3f0, state_or_msg0 = false, state_or_msg
         end
-        local case_1488_, case_1489_ = task_ok_3f0, state_or_msg0
-        if ((case_1488_ == true) and true) then
-          local _3fstate = case_1489_
+        local case_1478_, case_1479_ = task_ok_3f0, state_or_msg0
+        if ((case_1478_ == true) and true) then
+          local _3fstate = case_1479_
           agent.state = _3fstate
-        elseif ((case_1488_ == false) and (nil ~= case_1489_)) then
-          local err = case_1489_
+        elseif ((case_1478_ == false) and (nil ~= case_1479_)) then
+          local err = case_1479_
           if (agent["error-mode"] ~= "continue") then
             agent.status = "failed"
             agent.error = err
@@ -5274,7 +5097,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       end
       return nil
     end
-    a["go*"](_1484_)
+    a["go*"](_1474_)
     return nil
   end
   local agents = {}
@@ -5282,60 +5105,60 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function agent0(...)
-      local _let_1493_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1493_.list
-      local _let_1494_ = list_38_auto(...)
-      local state = _let_1494_[1]
-      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1494_, 2)
+      local _let_1483_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1483_.list
+      local _let_1484_ = list_38_auto(...)
+      local state = _let_1484_[1]
+      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1484_, 2)
       local opts = apply(hash_map, options)
       local agent1
-      local _1495_
+      local _1485_
       if opts.validator then
-        local function _1496_(newstate)
+        local function _1486_(newstate)
           if not opts.validator(newstate) then
             return error("Invalid reference state", 2)
           else
             return nil
           end
         end
-        _1495_ = _1496_
+        _1485_ = _1486_
       else
-        local function _1498_()
+        local function _1488_()
           return true
         end
-        _1495_ = _1498_
+        _1485_ = _1488_
       end
-      local or_1500_ = opts["error-handler"]
-      if not or_1500_ then
-        local function _1501_()
+      local or_1490_ = opts["error-handler"]
+      if not or_1490_ then
+        local function _1491_()
           return true
         end
-        or_1500_ = _1501_
+        or_1490_ = _1491_
       end
-      local function _1502_(self)
+      local function _1492_(self)
         return self.state
       end
-      local function _1503_(agent2, task)
+      local function _1493_(agent2, task)
         if (agent2.status ~= "ready") then
           error(agent2.error, 3)
         else
         end
-        local function _1505_()
+        local function _1495_()
           return a[">!"](agent2.tasks, task)
         end
-        a["go*"](_1505_)
+        a["go*"](_1495_)
         return agent2
       end
-      local function _1506_(agent2, view, inspector, indent)
+      local function _1496_(agent2, view, inspector, indent)
         local prefix = ("#<" .. string.gsub(tostring(agent2), "table", "agent") .. " ")
-        local _1507_
+        local _1497_
         do
           inspector["one-line?"] = true
-          _1507_ = inspector
+          _1497_ = inspector
         end
-        return {(prefix .. view({val = agent2.state, status = agent2.status}, _1507_, (indent + #prefix)) .. ">")}
+        return {(prefix .. view({val = agent2.state, status = agent2.status}, _1497_, (indent + #prefix)) .. ">")}
       end
-      agent1 = setmetatable({state = state, ["error-mode"] = (opts["error-mode"] or (opts["error-handler"] and "continue") or "fail"), validator = _1495_, ["error-handler"] = or_1500_, status = "ready", tasks = a.chan()}, {["cljlib/type"] = "agent", ["cljlib/deref"] = _1502_, ["cljlib/send"] = _1503_, __fennelview = _1506_})
+      agent1 = setmetatable({state = state, ["error-mode"] = (opts["error-mode"] or (opts["error-handler"] and "continue") or "fail"), validator = _1485_, ["error-handler"] = or_1490_, status = "ready", tasks = a.chan()}, {["cljlib/type"] = "agent", ["cljlib/deref"] = _1492_, ["cljlib/send"] = _1493_, __fennelview = _1496_})
       start_task_runner(agent1)
       agents[agent1] = true
       return agent1
@@ -5404,12 +5227,12 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function restart_agent0(...)
-      local _let_1511_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1511_.list
-      local _let_1512_ = list_38_auto(...)
-      local agent0 = _let_1512_[1]
-      local new_state = _let_1512_[2]
-      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1512_, 3)
+      local _let_1501_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1501_.list
+      local _let_1502_ = list_38_auto(...)
+      local agent0 = _let_1502_[1]
+      local new_state = _let_1502_[2]
+      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1502_, 3)
       if (agent0.status ~= "failed") then
         error("Agent does not need a restart", 2)
       else
@@ -5434,19 +5257,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function send0(...)
-      local _let_1515_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1515_.list
-      local _let_1516_ = list_38_auto(...)
-      local a0 = _let_1516_[1]
-      local f = _let_1516_[2]
-      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1516_, 3)
+      local _let_1505_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1505_.list
+      local _let_1506_ = list_38_auto(...)
+      local a0 = _let_1506_[1]
+      local f = _let_1506_[2]
+      local args = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1506_, 3)
       do
-        local case_1517_ = getmetatable(a0)
-        if ((_G.type(case_1517_) == "table") and (nil ~= case_1517_["cljlib/send"])) then
-          local send1 = case_1517_["cljlib/send"]
+        local case_1507_ = getmetatable(a0)
+        if ((_G.type(case_1507_) == "table") and (nil ~= case_1507_["cljlib/send"])) then
+          local send1 = case_1507_["cljlib/send"]
           send1(a0, {f, args})
         else
-          local _ = case_1517_
+          local _ = case_1507_
           error("object doesn't implement cljlib/send metamethod", 2)
         end
       end
@@ -5469,10 +5292,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       end
       for agent0 in pairs(agents) do
         agent0.status = nil
-        local function _1520_(x)
+        local function _1510_(x)
           return x
         end
-        send(a, _1520_)
+        send(a, _1510_)
       end
       agents = {}
       return nil
@@ -5485,45 +5308,45 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
   do
     local v_27_auto
     local function atom0(...)
-      local _let_1521_ = require("io.gitlab.andreyorst.cljlib.core")
-      local list_38_auto = _let_1521_.list
-      local _let_1522_ = list_38_auto(...)
-      local x = _let_1522_[1]
-      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1522_, 2)
+      local _let_1511_ = require("io.gitlab.andreyorst.cljlib.core")
+      local list_38_auto = _let_1511_.list
+      local _let_1512_ = list_38_auto(...)
+      local x = _let_1512_[1]
+      local options = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_let_1512_, 2)
       local opts = apply(hash_map, options)
       if (opts.validator and not opts.validator(x)) then
         error("Invalid reference state", 2)
       else
       end
-      local _1524_
+      local _1514_
       if opts.validator then
-        local function _1525_(newstate)
+        local function _1515_(newstate)
           if not opts.validator(newstate) then
             return error("Invalid reference state", 2)
           else
             return nil
           end
         end
-        _1524_ = _1525_
+        _1514_ = _1515_
       else
-        local function _1527_(_newstate)
+        local function _1517_(_newstate)
           return true
         end
-        _1524_ = _1527_
+        _1514_ = _1517_
       end
-      local function _1529_(self)
+      local function _1519_(self)
         return self.val
       end
-      local function _1530_(atom1, view, inspector, indent)
+      local function _1520_(atom1, view, inspector, indent)
         local prefix = ("#<" .. string.gsub(tostring(agent), "table", "atom") .. " ")
-        local _1531_
+        local _1521_
         do
           inspector["one-line?"] = true
-          _1531_ = inspector
+          _1521_ = inspector
         end
-        return {(prefix .. view({val = atom1.val, status = "ready"}, _1531_, (indent + #prefix)) .. ">")}
+        return {(prefix .. view({val = atom1.val, status = "ready"}, _1521_, (indent + #prefix)) .. ">")}
       end
-      return setmetatable({val = x, validator = _1524_}, {["cljlib/type"] = "atom", ["cljlib/deref"] = _1529_, __fennelview = _1530_})
+      return setmetatable({val = x, validator = _1514_}, {["cljlib/type"] = "atom", ["cljlib/deref"] = _1519_, __fennelview = _1520_})
     end
     v_27_auto = atom0
     core["atom"] = v_27_auto
@@ -5547,10 +5370,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _1533_()
+      local function _1523_()
         return newval
       end
-      return core["swap!"](atom0, _1533_)
+      return core["swap!"](atom0, _1523_)
     end
     v_27_auto = reset_210
     core["reset!"] = v_27_auto
@@ -5568,19 +5391,19 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _1535_(self)
+      local function _1525_(self)
         return self.val
       end
-      local function _1536_(volatile, view, inspector, indent)
+      local function _1526_(volatile, view, inspector, indent)
         local prefix = ("#<" .. string.gsub(tostring(agent), "table", "volatile") .. " ")
-        local _1537_
+        local _1527_
         do
           inspector["one-line?"] = true
-          _1537_ = inspector
+          _1527_ = inspector
         end
-        return {(prefix .. view({val = volatile.val, status = "ready"}, _1537_, (indent + #prefix)) .. ">")}
+        return {(prefix .. view({val = volatile.val, status = "ready"}, _1527_, (indent + #prefix)) .. ">")}
       end
-      return setmetatable({val = x}, {["cljlib/type"] = "volatile", ["cljlib/deref"] = _1535_, __fennelview = _1536_})
+      return setmetatable({val = x}, {["cljlib/type"] = "volatile", ["cljlib/deref"] = _1525_, __fennelview = _1526_})
     end
     v_27_auto = volatile_210
     core["volatile!"] = v_27_auto
@@ -5603,10 +5426,10 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         else
         end
       end
-      local function _1539_()
+      local function _1529_()
         return newval
       end
-      return core["vswap!"](volatile, _1539_)
+      return core["vswap!"](volatile, _1529_)
     end
     v_27_auto = vreset_210
     core["vreset!"] = v_27_auto
@@ -5628,14 +5451,14 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         error("Invalid reference state", 2)
       else
       end
-      local function _1542_(newstate)
+      local function _1532_(newstate)
         if not validator_fn(newstate) then
           return error("Invalid reference state", 2)
         else
           return nil
         end
       end
-      agent_2fatom.validator = _1542_
+      agent_2fatom.validator = _1532_
       return nil
     end
     v_27_auto = set_validator_210
@@ -5658,9 +5481,9 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
       end
       do
-        local case_1545_ = taps[f]
-        if (nil ~= case_1545_) then
-          local c = case_1545_
+        local case_1535_ = taps[f]
+        if (nil ~= case_1535_) then
+          local c = case_1535_
           a.untap(mult_ch, c)
           a["close!"](c)
         else
@@ -5688,7 +5511,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
       remove_tap(f)
       local c = a.chan()
       a.tap(mult_ch, c)
-      local function _1548_()
+      local function _1538_()
         local function recur()
           local data = a["<!"](c)
           if data then
@@ -5700,7 +5523,7 @@ package.preload["io.gitlab.andreyorst.cljlib.core"] = package.preload["io.gitlab
         end
         return recur()
       end
-      a["go*"](_1548_)
+      a["go*"](_1538_)
       taps[f] = c
       return nil
     end
@@ -5768,7 +5591,7 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     end
   end
   local function rev_ipairs(t)
-    local function _14_(t0, i)
+    local function _4_(t0, i)
       local i0 = (i - 1)
       if (i0 == 0) then
         return nil
@@ -5777,7 +5600,7 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         return i0, t0[i0]
       end
     end
-    return _14_, t, (1 + #t)
+    return _4_, t, (1 + #t)
   end
   local function length_2a(t)
     local mt = getmetatable(t)
@@ -5796,12 +5619,12 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   local seq = nil
   local cons_iter = nil
   local function first(s)
-    local case_17_ = seq(s)
-    if (nil ~= case_17_) then
-      local s_2a = case_17_
+    local case_7_ = seq(s)
+    if (nil ~= case_7_) then
+      local s_2a = case_7_
       return s_2a(true)
     else
-      local _ = case_17_
+      local _ = case_7_
       return nil
     end
   end
@@ -5824,20 +5647,20 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return empty_cons_next, nil, s
   end
   local function gettype(x)
-    local case_19_
+    local case_9_
     do
-      local t_20_ = getmetatable(x)
-      if (nil ~= t_20_) then
-        t_20_ = t_20_["__lazy-seq/type"]
+      local t_10_ = getmetatable(x)
+      if (nil ~= t_10_) then
+        t_10_ = t_10_["__lazy-seq/type"]
       else
       end
-      case_19_ = t_20_
+      case_9_ = t_10_
     end
-    if (nil ~= case_19_) then
-      local t = case_19_
+    if (nil ~= case_9_) then
+      local t = case_9_
       return t
     else
-      local _ = case_19_
+      local _ = case_9_
       return type(x)
     end
   end
@@ -5864,12 +5687,12 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   end
   setmetatable(empty_cons, {__call = empty_cons_call, __len = empty_cons_len, __fennelview = empty_cons_view, __fennelrest = empty_cons_fennelrest, ["__lazy-seq/type"] = "empty-cons", __newindex = cons_newindex, __index = empty_cons_index, __name = "cons", __eq = empty_cons_eq, __pairs = empty_cons_pairs})
   local function rest(s)
-    local case_25_ = seq(s)
-    if (nil ~= case_25_) then
-      local s_2a = case_25_
+    local case_15_ = seq(s)
+    if (nil ~= case_15_) then
+      local s_2a = case_15_
       return s_2a(false)
     else
-      local _ = case_25_
+      local _ = case_15_
       return empty_cons
     end
   end
@@ -5927,11 +5750,11 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   local function cons_next(_, s)
     if (empty_cons ~= s) then
       local tail = next(s)
-      local case_30_ = gettype(tail)
-      if (case_30_ == "cons") then
+      local case_20_ = gettype(tail)
+      if (case_20_ == "cons") then
         return tail, first(s)
       else
-        local _0 = case_30_
+        local _0 = case_20_
         return empty_cons, first(s)
       end
     else
@@ -5980,7 +5803,7 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     do local _ = {head, tail} end
     local tp = gettype(tail)
     assert(allowed_types[tp], ("expected nil, cons, table, or string as a tail, got: %s"):format(tp))
-    local function _36_(_241, _242)
+    local function _26_(_241, _242)
       if _242 then
         return head
       else
@@ -5994,32 +5817,32 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         end
       end
     end
-    return setmetatable({}, {__call = _36_, ["__lazy-seq/type"] = "cons", __index = cons_index, __newindex = cons_newindex, __len = cons_len, __pairs = cons_pairs, __name = "cons", __eq = cons_eq, __fennelview = pp_seq, __fennelrest = cons_fennelrest})
+    return setmetatable({}, {__call = _26_, ["__lazy-seq/type"] = "cons", __index = cons_index, __newindex = cons_newindex, __len = cons_len, __pairs = cons_pairs, __name = "cons", __eq = cons_eq, __fennelview = pp_seq, __fennelrest = cons_fennelrest})
   end
-  local function _39_(s)
-    local case_40_ = gettype(s)
-    if (case_40_ == "cons") then
+  local function _29_(s)
+    local case_30_ = gettype(s)
+    if (case_30_ == "cons") then
       return s
-    elseif (case_40_ == "lazy-cons") then
+    elseif (case_30_ == "lazy-cons") then
       return seq(realize(s))
-    elseif (case_40_ == "empty-cons") then
+    elseif (case_30_ == "empty-cons") then
       return nil
-    elseif (case_40_ == "nil") then
+    elseif (case_30_ == "nil") then
       return nil
-    elseif (case_40_ == "table") then
+    elseif (case_30_ == "table") then
       return cons_iter(s)
-    elseif (case_40_ == "string") then
+    elseif (case_30_ == "string") then
       return cons_iter(s)
     else
-      local _ = case_40_
+      local _ = case_30_
       return error(("expected table, string or sequence, got %s"):format(_), 2)
     end
   end
-  seq = _39_
+  seq = _29_
   local function lazy_seq_2a(f)
     local lazy_cons = cons(nil, nil)
     local realize0
-    local function _42_()
+    local function _32_()
       local s = seq(f())
       if (nil ~= s) then
         return setmetatable(lazy_cons, getmetatable(s))
@@ -6027,27 +5850,27 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         return setmetatable(lazy_cons, getmetatable(empty_cons))
       end
     end
-    realize0 = _42_
-    local function _44_(_241, _242)
+    realize0 = _32_
+    local function _34_(_241, _242)
       return realize0()(_242)
     end
-    local function _45_(_241, _242)
+    local function _35_(_241, _242)
       return realize0()[_242]
     end
-    local function _46_(...)
+    local function _36_(...)
       realize0()
       return pp_seq(...)
     end
-    local function _47_()
+    local function _37_()
       return length_2a(realize0())
     end
-    local function _48_()
+    local function _38_()
       return pairs_2a(realize0())
     end
-    local function _49_(_241, _242)
+    local function _39_(_241, _242)
       return (realize0() == _242)
     end
-    return setmetatable(lazy_cons, {__call = _44_, __index = _45_, __newindex = cons_newindex, __fennelview = _46_, __fennelrest = cons_fennelrest, __len = _47_, __pairs = _48_, __name = "lazy cons", __eq = _49_, ["__lazy-seq/type"] = "lazy-cons"})
+    return setmetatable(lazy_cons, {__call = _34_, __index = _35_, __newindex = cons_newindex, __fennelview = _36_, __fennelrest = cons_fennelrest, __len = _37_, __pairs = _38_, __name = "lazy cons", __eq = _39_, ["__lazy-seq/type"] = "lazy-cons"})
   end
   local function list(...)
     local args = table_pack(...)
@@ -6070,50 +5893,50 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     end
   end
   local function list_2a(...)
-    local case_51_, case_52_, case_53_, case_54_, case_55_ = select("#", ...), ...
-    if ((case_51_ == 1) and true) then
-      local _3fargs = case_52_
+    local case_41_, case_42_, case_43_, case_44_, case_45_ = select("#", ...), ...
+    if ((case_41_ == 1) and true) then
+      local _3fargs = case_42_
       return seq(_3fargs)
-    elseif ((case_51_ == 2) and true and true) then
-      local _3fa = case_52_
-      local _3fargs = case_53_
+    elseif ((case_41_ == 2) and true and true) then
+      local _3fa = case_42_
+      local _3fargs = case_43_
       return cons(_3fa, seq(_3fargs))
-    elseif ((case_51_ == 3) and true and true and true) then
-      local _3fa = case_52_
-      local _3fb = case_53_
-      local _3fargs = case_54_
+    elseif ((case_41_ == 3) and true and true and true) then
+      local _3fa = case_42_
+      local _3fb = case_43_
+      local _3fargs = case_44_
       return cons(_3fa, cons(_3fb, seq(_3fargs)))
-    elseif ((case_51_ == 4) and true and true and true and true) then
-      local _3fa = case_52_
-      local _3fb = case_53_
-      local _3fc = case_54_
-      local _3fargs = case_55_
+    elseif ((case_41_ == 4) and true and true and true and true) then
+      local _3fa = case_42_
+      local _3fb = case_43_
+      local _3fc = case_44_
+      local _3fargs = case_45_
       return cons(_3fa, cons(_3fb, cons(_3fc, seq(_3fargs))))
     else
-      local _ = case_51_
+      local _ = case_41_
       return spread(list(...))
     end
   end
   local function kind(t)
-    local case_57_ = type(t)
-    if (case_57_ == "table") then
+    local case_47_ = type(t)
+    if (case_47_ == "table") then
       local len = length_2a(t)
       local nxt, t_2a, k = pairs_2a(t)
-      local function _58_()
+      local function _48_()
         if (len == 0) then
           return k
         else
           return len
         end
       end
-      if (nil ~= nxt(t_2a, _58_())) then
+      if (nil ~= nxt(t_2a, _48_())) then
         return "assoc"
       elseif (len > 0) then
         return "seq"
       else
         return "empty"
       end
-    elseif (case_57_ == "string") then
+    elseif (case_47_ == "string") then
       local len
       if utf8 then
         len = utf8.len(t)
@@ -6126,67 +5949,67 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         return "empty"
       end
     else
-      local _ = case_57_
+      local _ = case_47_
       return "else"
     end
   end
   local function rseq(rev)
-    local case_63_ = gettype(rev)
-    if (case_63_ == "table") then
-      local case_64_ = kind(rev)
-      if (case_64_ == "seq") then
+    local case_53_ = gettype(rev)
+    if (case_53_ == "table") then
+      local case_54_ = kind(rev)
+      if (case_54_ == "seq") then
         local function wrap(nxt, t, i)
           local i0, v = nxt(t, i)
           if (nil ~= i0) then
-            local function _65_()
+            local function _55_()
               return wrap(nxt, t, i0)
             end
-            return cons(v, lazy_seq_2a(_65_))
+            return cons(v, lazy_seq_2a(_55_))
           else
             return empty_cons
           end
         end
         return wrap(rev_ipairs(rev))
-      elseif (case_64_ == "empty") then
+      elseif (case_54_ == "empty") then
         return nil
       else
-        local _ = case_64_
+        local _ = case_54_
         return error("can't create an rseq from a non-sequential table")
       end
     else
-      local _ = case_63_
+      local _ = case_53_
       return error(("can't create an rseq from a " .. _))
     end
   end
-  local function _69_(t)
-    local case_70_ = kind(t)
-    if (case_70_ == "assoc") then
+  local function _59_(t)
+    local case_60_ = kind(t)
+    if (case_60_ == "assoc") then
       local function wrap(nxt, t0, k)
         local k0, v = nxt(t0, k)
         if (nil ~= k0) then
-          local function _71_()
+          local function _61_()
             return wrap(nxt, t0, k0)
           end
-          return cons({k0, v}, lazy_seq_2a(_71_))
+          return cons({k0, v}, lazy_seq_2a(_61_))
         else
           return empty_cons
         end
       end
       return wrap(pairs_2a(t))
-    elseif (case_70_ == "seq") then
+    elseif (case_60_ == "seq") then
       local function wrap(nxt, t0, i)
         local i0, v = nxt(t0, i)
         if (nil ~= i0) then
-          local function _73_()
+          local function _63_()
             return wrap(nxt, t0, i0)
           end
-          return cons(v, lazy_seq_2a(_73_))
+          return cons(v, lazy_seq_2a(_63_))
         else
           return empty_cons
         end
       end
       return wrap(ipairs_2a(t))
-    elseif (case_70_ == "string") then
+    elseif (case_60_ == "string") then
       local char
       if utf8 then
         char = utf8.char
@@ -6196,68 +6019,68 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
       local function wrap(nxt, t0, i)
         local i0, v = nxt(t0, i)
         if (nil ~= i0) then
-          local function _76_()
+          local function _66_()
             return wrap(nxt, t0, i0)
           end
-          return cons(char(v), lazy_seq_2a(_76_))
+          return cons(char(v), lazy_seq_2a(_66_))
         else
           return empty_cons
         end
       end
-      local function _78_()
+      local function _68_()
         if utf8 then
           return utf8.codes(t)
         else
           return ipairs_2a({string.byte(t, 1, #t)})
         end
       end
-      return wrap(_78_())
-    elseif (case_70_ == "empty") then
+      return wrap(_68_())
+    elseif (case_60_ == "empty") then
       return nil
     else
       return nil
     end
   end
-  cons_iter = _69_
+  cons_iter = _59_
   local function every_3f(pred, coll)
-    local case_80_ = seq(coll)
-    if (nil ~= case_80_) then
-      local s = case_80_
+    local case_70_ = seq(coll)
+    if (nil ~= case_70_) then
+      local s = case_70_
       if pred(first(s)) then
-        local case_81_ = next(s)
-        if (nil ~= case_81_) then
-          local r = case_81_
+        local case_71_ = next(s)
+        if (nil ~= case_71_) then
+          local r = case_71_
           return every_3f(pred, r)
         else
-          local _ = case_81_
+          local _ = case_71_
           return true
         end
       else
         return false
       end
     else
-      local _ = case_80_
+      local _ = case_70_
       return false
     end
   end
   local function some_3f(pred, coll)
-    local case_85_ = seq(coll)
-    if (nil ~= case_85_) then
-      local s = case_85_
-      local or_86_ = pred(first(s))
-      if not or_86_ then
-        local case_87_ = next(s)
-        if (nil ~= case_87_) then
-          local r = case_87_
-          or_86_ = some_3f(pred, r)
+    local case_75_ = seq(coll)
+    if (nil ~= case_75_) then
+      local s = case_75_
+      local or_76_ = pred(first(s))
+      if not or_76_ then
+        local case_77_ = next(s)
+        if (nil ~= case_77_) then
+          local r = case_77_
+          or_76_ = some_3f(pred, r)
         else
-          local _ = case_87_
-          or_86_ = nil
+          local _ = case_77_
+          or_76_ = nil
         end
       end
-      return or_86_
+      return or_76_
     else
-      local _ = case_85_
+      local _ = case_75_
       return nil
     end
   end
@@ -6265,9 +6088,9 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     local res = {}
     local n = 0
     do
-      local case_93_ = seq(s)
-      if (nil ~= case_93_) then
-        local s_2a = case_93_
+      local case_83_ = seq(s)
+      if (nil ~= case_83_) then
+        local s_2a = case_83_
         for _, v in pairs_2a(s_2a) do
           n = (n + 1)
           res[n] = v
@@ -6279,12 +6102,12 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return res
   end
   local function count(s)
-    local case_95_ = seq(s)
-    if (nil ~= case_95_) then
-      local s_2a = case_95_
+    local case_85_ = seq(s)
+    if (nil ~= case_85_) then
+      local s_2a = case_85_
       return length_2a(s_2a)
     else
-      local _ = case_95_
+      local _ = case_85_
       return 0
     end
   end
@@ -6293,68 +6116,68 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return table_unpack(t, 1, t.n)
   end
   local function concat(...)
-    local case_97_ = select("#", ...)
-    if (case_97_ == 0) then
+    local case_87_ = select("#", ...)
+    if (case_87_ == 0) then
       return empty_cons
-    elseif (case_97_ == 1) then
+    elseif (case_87_ == 1) then
       local x = ...
-      local function _98_()
+      local function _88_()
         return x
       end
-      return lazy_seq_2a(_98_)
-    elseif (case_97_ == 2) then
+      return lazy_seq_2a(_88_)
+    elseif (case_87_ == 2) then
       local x, y = ...
-      local function _99_()
-        local case_100_ = seq(x)
-        if (nil ~= case_100_) then
-          local s = case_100_
+      local function _89_()
+        local case_90_ = seq(x)
+        if (nil ~= case_90_) then
+          local s = case_90_
           return cons(first(s), concat(rest(s), y))
-        elseif (case_100_ == nil) then
+        elseif (case_90_ == nil) then
           return y
         else
           return nil
         end
       end
-      return lazy_seq_2a(_99_)
+      return lazy_seq_2a(_89_)
     else
-      local _ = case_97_
-      local pv_102_, pv_103_ = ...
-      return concat(concat(pv_102_, pv_103_), select(3, ...))
+      local _ = case_87_
+      local pv_92_, pv_93_ = ...
+      return concat(concat(pv_92_, pv_93_), select(3, ...))
     end
   end
   local function reverse(s)
     local function helper(s0, res)
-      local case_105_ = seq(s0)
-      if (nil ~= case_105_) then
-        local s_2a = case_105_
+      local case_95_ = seq(s0)
+      if (nil ~= case_95_) then
+        local s_2a = case_95_
         return helper(rest(s_2a), cons(first(s_2a), res))
       else
-        local _ = case_105_
+        local _ = case_95_
         return res
       end
     end
     return helper(s, empty_cons)
   end
   local function map(f, ...)
-    local case_107_ = select("#", ...)
-    if (case_107_ == 0) then
+    local case_97_ = select("#", ...)
+    if (case_97_ == 0) then
       return nil
-    elseif (case_107_ == 1) then
+    elseif (case_97_ == 1) then
       local col = ...
-      local function _108_()
-        local case_109_ = seq(col)
-        if (nil ~= case_109_) then
-          local x = case_109_
+      local function _98_()
+        local case_99_ = seq(col)
+        if (nil ~= case_99_) then
+          local x = case_99_
           return cons(f(first(x)), map(f, seq(rest(x))))
         else
-          local _ = case_109_
+          local _ = case_99_
           return nil
         end
       end
-      return lazy_seq_2a(_108_)
-    elseif (case_107_ == 2) then
+      return lazy_seq_2a(_98_)
+    elseif (case_97_ == 2) then
       local s1, s2 = ...
-      local function _111_()
+      local function _101_()
         local s10 = seq(s1)
         local s20 = seq(s2)
         if (s10 and s20) then
@@ -6363,10 +6186,10 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return nil
         end
       end
-      return lazy_seq_2a(_111_)
-    elseif (case_107_ == 3) then
+      return lazy_seq_2a(_101_)
+    elseif (case_97_ == 3) then
       local s1, s2, s3 = ...
-      local function _113_()
+      local function _103_()
         local s10 = seq(s1)
         local s20 = seq(s2)
         local s30 = seq(s3)
@@ -6376,37 +6199,37 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return nil
         end
       end
-      return lazy_seq_2a(_113_)
+      return lazy_seq_2a(_103_)
     else
-      local _ = case_107_
+      local _ = case_97_
       local s = list(...)
-      local function _115_()
-        local function _116_(_2410)
+      local function _105_()
+        local function _106_(_2410)
           return (nil ~= seq(_2410))
         end
-        if every_3f(_116_, s) then
+        if every_3f(_106_, s) then
           return cons(f(unpack(map(first, s))), map(f, unpack(map(rest, s))))
         else
           return nil
         end
       end
-      return lazy_seq_2a(_115_)
+      return lazy_seq_2a(_105_)
     end
   end
   local function map_indexed(f, coll)
     local mapi
     local function mapi0(idx, coll0)
-      local function _119_()
-        local case_120_ = seq(coll0)
-        if (nil ~= case_120_) then
-          local s = case_120_
+      local function _109_()
+        local case_110_ = seq(coll0)
+        if (nil ~= case_110_) then
+          local s = case_110_
           return cons(f(idx, first(s)), mapi0((idx + 1), rest(s)))
         else
-          local _ = case_120_
+          local _ = case_110_
           return nil
         end
       end
-      return lazy_seq_2a(_119_)
+      return lazy_seq_2a(_109_)
     end
     mapi = mapi0
     return mapi(1, coll)
@@ -6414,44 +6237,44 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   local function mapcat(f, ...)
     local step
     local function step0(colls)
-      local function _122_()
-        local case_123_ = seq(colls)
-        if (nil ~= case_123_) then
-          local s = case_123_
+      local function _112_()
+        local case_113_ = seq(colls)
+        if (nil ~= case_113_) then
+          local s = case_113_
           local c = first(s)
           return concat(c, step0(rest(colls)))
         else
-          local _ = case_123_
+          local _ = case_113_
           return nil
         end
       end
-      return lazy_seq_2a(_122_)
+      return lazy_seq_2a(_112_)
     end
     step = step0
     return step(map(f, ...))
   end
   local function take(n, coll)
-    local function _125_()
+    local function _115_()
       if (n > 0) then
-        local case_126_ = seq(coll)
-        if (nil ~= case_126_) then
-          local s = case_126_
+        local case_116_ = seq(coll)
+        if (nil ~= case_116_) then
+          local s = case_116_
           return cons(first(s), take((n - 1), rest(s)))
         else
-          local _ = case_126_
+          local _ = case_116_
           return nil
         end
       else
         return nil
       end
     end
-    return lazy_seq_2a(_125_)
+    return lazy_seq_2a(_115_)
   end
   local function take_while(pred, coll)
-    local function _129_()
-      local case_130_ = seq(coll)
-      if (nil ~= case_130_) then
-        local s = case_130_
+    local function _119_()
+      local case_120_ = seq(coll)
+      if (nil ~= case_120_) then
+        local s = case_120_
         local v = first(s)
         if pred(v) then
           return cons(v, take_while(pred, rest(s)))
@@ -6459,13 +6282,13 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return nil
         end
       else
-        local _ = case_130_
+        local _ = case_120_
         return nil
       end
     end
-    return lazy_seq_2a(_129_)
+    return lazy_seq_2a(_119_)
   end
-  local function _133_(n, coll)
+  local function _123_(n, coll)
     local step
     local function step0(n0, coll0)
       local s = seq(coll0)
@@ -6476,12 +6299,12 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
       end
     end
     step = step0
-    local function _135_()
+    local function _125_()
       return step(n, coll)
     end
-    return lazy_seq_2a(_135_)
+    return lazy_seq_2a(_125_)
   end
-  drop = _133_
+  drop = _123_
   local function drop_while(pred, coll)
     local step
     local function step0(pred0, coll0)
@@ -6493,24 +6316,24 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
       end
     end
     step = step0
-    local function _137_()
+    local function _127_()
       return step(pred, coll)
     end
-    return lazy_seq_2a(_137_)
+    return lazy_seq_2a(_127_)
   end
   local function drop_last(...)
-    local case_138_ = select("#", ...)
-    if (case_138_ == 0) then
+    local case_128_ = select("#", ...)
+    if (case_128_ == 0) then
       return empty_cons
-    elseif (case_138_ == 1) then
+    elseif (case_128_ == 1) then
       return drop_last(1, ...)
     else
-      local _ = case_138_
+      local _ = case_128_
       local n, coll = ...
-      local function _139_(x)
+      local function _129_(x)
         return x
       end
-      return map(_139_, coll, drop(n, coll))
+      return map(_129_, coll, drop(n, coll))
     end
   end
   local function take_last(n, coll)
@@ -6524,16 +6347,16 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return loop(seq(coll), seq(drop(n, coll)))
   end
   local function take_nth(n, coll)
-    local function _142_()
-      local case_143_ = seq(coll)
-      if (nil ~= case_143_) then
-        local s = case_143_
+    local function _132_()
+      local case_133_ = seq(coll)
+      if (nil ~= case_133_) then
+        local s = case_133_
         return cons(first(s), take_nth(n, drop(n, s)))
       else
         return nil
       end
     end
-    return lazy_seq_2a(_142_)
+    return lazy_seq_2a(_132_)
   end
   local function split_at(n, coll)
     return {take(n, coll), drop(n, coll)}
@@ -6542,10 +6365,10 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return {take_while(pred, coll), drop_while(pred, coll)}
   end
   local function filter(pred, coll)
-    local function _145_()
-      local case_146_ = seq(coll)
-      if (nil ~= case_146_) then
-        local s = case_146_
+    local function _135_()
+      local case_136_ = seq(coll)
+      if (nil ~= case_136_) then
+        local s = case_136_
         local x = first(s)
         local r = rest(s)
         if pred(x) then
@@ -6554,40 +6377,40 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return filter(pred, r)
         end
       else
-        local _ = case_146_
+        local _ = case_136_
         return nil
       end
     end
-    return lazy_seq_2a(_145_)
+    return lazy_seq_2a(_135_)
   end
   local function keep(f, coll)
-    local function _149_()
-      local case_150_ = seq(coll)
-      if (nil ~= case_150_) then
-        local s = case_150_
-        local case_151_ = f(first(s))
-        if (nil ~= case_151_) then
-          local x = case_151_
+    local function _139_()
+      local case_140_ = seq(coll)
+      if (nil ~= case_140_) then
+        local s = case_140_
+        local case_141_ = f(first(s))
+        if (nil ~= case_141_) then
+          local x = case_141_
           return cons(x, keep(f, rest(s)))
-        elseif (case_151_ == nil) then
+        elseif (case_141_ == nil) then
           return keep(f, rest(s))
         else
           return nil
         end
       else
-        local _ = case_150_
+        local _ = case_140_
         return nil
       end
     end
-    return lazy_seq_2a(_149_)
+    return lazy_seq_2a(_139_)
   end
   local function keep_indexed(f, coll)
     local keepi
     local function keepi0(idx, coll0)
-      local function _154_()
-        local case_155_ = seq(coll0)
-        if (nil ~= case_155_) then
-          local s = case_155_
+      local function _144_()
+        local case_145_ = seq(coll0)
+        if (nil ~= case_145_) then
+          local s = case_145_
           local x = f(idx, first(s))
           if (nil == x) then
             return keepi0((1 + idx), rest(s))
@@ -6598,62 +6421,62 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return nil
         end
       end
-      return lazy_seq_2a(_154_)
+      return lazy_seq_2a(_144_)
     end
     keepi = keepi0
     return keepi(1, coll)
   end
   local function remove(pred, coll)
-    local function _158_(_241)
+    local function _148_(_241)
       return not pred(_241)
     end
-    return filter(_158_, coll)
+    return filter(_148_, coll)
   end
   local function cycle(coll)
-    local function _159_()
+    local function _149_()
       return concat(seq(coll), cycle(coll))
     end
-    return lazy_seq_2a(_159_)
+    return lazy_seq_2a(_149_)
   end
   local function _repeat(x)
     local function step(x0)
-      local function _160_()
+      local function _150_()
         return cons(x0, step(x0))
       end
-      return lazy_seq_2a(_160_)
+      return lazy_seq_2a(_150_)
     end
     return step(x)
   end
   local function repeatedly(f, ...)
     local args = table_pack(...)
     local f0
-    local function _161_()
+    local function _151_()
       return f(table_unpack(args, 1, args.n))
     end
-    f0 = _161_
+    f0 = _151_
     local function step(f1)
-      local function _162_()
+      local function _152_()
         return cons(f1(), step(f1))
       end
-      return lazy_seq_2a(_162_)
+      return lazy_seq_2a(_152_)
     end
     return step(f0)
   end
   local function iterate(f, x)
     local x_2a = f(x)
-    local function _163_()
+    local function _153_()
       return iterate(f, x_2a)
     end
-    return cons(x, lazy_seq_2a(_163_))
+    return cons(x, lazy_seq_2a(_153_))
   end
   local function nthnext(coll, n)
     local function loop(n0, xs)
-      local and_164_ = (nil ~= xs)
-      if and_164_ then
+      local and_154_ = (nil ~= xs)
+      if and_154_ then
         local xs_2a = xs
-        and_164_ = (n0 > 0)
+        and_154_ = (n0 > 0)
       end
-      if and_164_ then
+      if and_154_ then
         local xs_2a = xs
         return loop((n0 - 1), next(xs_2a))
       else
@@ -6665,29 +6488,29 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   end
   local function nthrest(coll, n)
     local function loop(n0, xs)
-      local case_167_ = seq(xs)
-      local and_168_ = (nil ~= case_167_)
-      if and_168_ then
-        local xs_2a = case_167_
-        and_168_ = (n0 > 0)
+      local case_157_ = seq(xs)
+      local and_158_ = (nil ~= case_157_)
+      if and_158_ then
+        local xs_2a = case_157_
+        and_158_ = (n0 > 0)
       end
-      if and_168_ then
-        local xs_2a = case_167_
+      if and_158_ then
+        local xs_2a = case_157_
         return loop((n0 - 1), rest(xs_2a))
       else
-        local _ = case_167_
+        local _ = case_157_
         return xs
       end
     end
     return loop(n, coll)
   end
   local function dorun(s)
-    local case_171_ = seq(s)
-    if (nil ~= case_171_) then
-      local s_2a = case_171_
+    local case_161_ = seq(s)
+    if (nil ~= case_161_) then
+      local s_2a = case_161_
       return dorun(next(s_2a))
     else
-      local _ = case_171_
+      local _ = case_161_
       return nil
     end
   end
@@ -6696,16 +6519,16 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     return s
   end
   local function partition(...)
-    local case_173_ = select("#", ...)
-    if (case_173_ == 2) then
+    local case_163_ = select("#", ...)
+    if (case_163_ == 2) then
       local n, coll = ...
       return partition(n, n, coll)
-    elseif (case_173_ == 3) then
+    elseif (case_163_ == 3) then
       local n, step, coll = ...
-      local function _174_()
-        local case_175_ = seq(coll)
-        if (nil ~= case_175_) then
-          local s = case_175_
+      local function _164_()
+        local case_165_ = seq(coll)
+        if (nil ~= case_165_) then
+          local s = case_165_
           local p = take(n, s)
           if (n == length_2a(p)) then
             return cons(p, partition(n, step, nthrest(s, step)))
@@ -6713,17 +6536,17 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
             return nil
           end
         else
-          local _ = case_175_
+          local _ = case_165_
           return nil
         end
       end
-      return lazy_seq_2a(_174_)
-    elseif (case_173_ == 4) then
+      return lazy_seq_2a(_164_)
+    elseif (case_163_ == 4) then
       local n, step, pad, coll = ...
-      local function _178_()
-        local case_179_ = seq(coll)
-        if (nil ~= case_179_) then
-          local s = case_179_
+      local function _168_()
+        local case_169_ = seq(coll)
+        if (nil ~= case_169_) then
+          local s = case_169_
           local p = take(n, s)
           if (n == length_2a(p)) then
             return cons(p, partition(n, step, pad, nthrest(s, step)))
@@ -6731,99 +6554,99 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
             return list(take(n, concat(p, pad)))
           end
         else
-          local _ = case_179_
+          local _ = case_169_
           return nil
         end
       end
-      return lazy_seq_2a(_178_)
+      return lazy_seq_2a(_168_)
     else
-      local _ = case_173_
+      local _ = case_163_
       return error("wrong amount arguments to 'partition'")
     end
   end
   local function partition_by(f, coll)
-    local function _183_()
-      local case_184_ = seq(coll)
-      if (nil ~= case_184_) then
-        local s = case_184_
+    local function _173_()
+      local case_174_ = seq(coll)
+      if (nil ~= case_174_) then
+        local s = case_174_
         local v = first(s)
         local fv = f(v)
         local run
-        local function _185_(_2410)
+        local function _175_(_2410)
           return (fv == f(_2410))
         end
-        run = cons(v, take_while(_185_, next(s)))
-        local function _186_()
+        run = cons(v, take_while(_175_, next(s)))
+        local function _176_()
           return drop(length_2a(run), s)
         end
-        return cons(run, partition_by(f, lazy_seq_2a(_186_)))
+        return cons(run, partition_by(f, lazy_seq_2a(_176_)))
       else
         return nil
       end
     end
-    return lazy_seq_2a(_183_)
+    return lazy_seq_2a(_173_)
   end
   local function partition_all(...)
-    local case_188_ = select("#", ...)
-    if (case_188_ == 2) then
+    local case_178_ = select("#", ...)
+    if (case_178_ == 2) then
       local n, coll = ...
       return partition_all(n, n, coll)
-    elseif (case_188_ == 3) then
+    elseif (case_178_ == 3) then
       local n, step, coll = ...
-      local function _189_()
-        local case_190_ = seq(coll)
-        if (nil ~= case_190_) then
-          local s = case_190_
+      local function _179_()
+        local case_180_ = seq(coll)
+        if (nil ~= case_180_) then
+          local s = case_180_
           local p = take(n, s)
           return cons(p, partition_all(n, step, nthrest(s, step)))
         else
-          local _ = case_190_
+          local _ = case_180_
           return nil
         end
       end
-      return lazy_seq_2a(_189_)
+      return lazy_seq_2a(_179_)
     else
-      local _ = case_188_
+      local _ = case_178_
       return error("wrong amount arguments to 'partition-all'")
     end
   end
   local function reductions(...)
-    local case_193_ = select("#", ...)
-    if (case_193_ == 2) then
+    local case_183_ = select("#", ...)
+    if (case_183_ == 2) then
       local f, coll = ...
-      local function _194_()
-        local case_195_ = seq(coll)
-        if (nil ~= case_195_) then
-          local s = case_195_
+      local function _184_()
+        local case_185_ = seq(coll)
+        if (nil ~= case_185_) then
+          local s = case_185_
           return reductions(f, first(s), rest(s))
         else
-          local _ = case_195_
+          local _ = case_185_
           return list(f())
         end
       end
-      return lazy_seq_2a(_194_)
-    elseif (case_193_ == 3) then
+      return lazy_seq_2a(_184_)
+    elseif (case_183_ == 3) then
       local f, init, coll = ...
-      local function _197_()
-        local case_198_ = seq(coll)
-        if (nil ~= case_198_) then
-          local s = case_198_
+      local function _187_()
+        local case_188_ = seq(coll)
+        if (nil ~= case_188_) then
+          local s = case_188_
           return reductions(f, f(init, first(s)), rest(s))
         else
           return nil
         end
       end
-      return cons(init, lazy_seq_2a(_197_))
+      return cons(init, lazy_seq_2a(_187_))
     else
-      local _ = case_193_
+      local _ = case_183_
       return error("wrong amount arguments to 'reductions'")
     end
   end
   local function contains_3f(coll, elt)
-    local case_201_ = gettype(coll)
-    if (case_201_ == "table") then
-      local case_202_ = kind(coll)
-      if (case_202_ == "seq") then
+    local case_191_ = gettype(coll)
+    if (case_191_ == "table") then
+      local case_192_ = kind(coll)
+      if (case_192_ == "seq") then
         local res = false
         for _, v in ipairs_2a(coll) do
           if res then break end
@@ -6834,7 +6657,7 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           end
         end
         return res
-      elseif (case_202_ == "assoc") then
+      elseif (case_192_ == "assoc") then
         if coll[elt] then
           return true
         else
@@ -6844,17 +6667,17 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         return nil
       end
     else
-      local _ = case_201_
+      local _ = case_191_
       local function loop(coll0)
-        local case_206_ = seq(coll0)
-        if (nil ~= case_206_) then
-          local s = case_206_
+        local case_196_ = seq(coll0)
+        if (nil ~= case_196_) then
+          local s = case_196_
           if (elt == first(s)) then
             return true
           else
             return loop(rest(s))
           end
-        elseif (case_206_ == nil) then
+        elseif (case_196_ == nil) then
           return false
         else
           return nil
@@ -6866,42 +6689,42 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   local function distinct(coll)
     local function step(xs, seen)
       local loop
-      local function loop0(_210_, seen0)
-        local f = _210_[1]
-        local xs0 = _210_
-        local case_211_ = seq(xs0)
-        if (nil ~= case_211_) then
-          local s = case_211_
+      local function loop0(_200_, seen0)
+        local f = _200_[1]
+        local xs0 = _200_
+        local case_201_ = seq(xs0)
+        if (nil ~= case_201_) then
+          local s = case_201_
           if seen0[f] then
             return loop0(rest(s), seen0)
           else
-            local function _212_()
+            local function _202_()
               seen0[f] = true
               return seen0
             end
-            return cons(f, step(rest(s), _212_()))
+            return cons(f, step(rest(s), _202_()))
           end
         else
-          local _ = case_211_
+          local _ = case_201_
           return nil
         end
       end
       loop = loop0
-      local function _215_()
+      local function _205_()
         return loop(xs, seen)
       end
-      return lazy_seq_2a(_215_)
+      return lazy_seq_2a(_205_)
     end
     return step(coll, {})
   end
   local function inf_range(x, step)
-    local function _216_()
+    local function _206_()
       return cons(x, inf_range((x + step), step))
     end
-    return lazy_seq_2a(_216_)
+    return lazy_seq_2a(_206_)
   end
   local function fix_range(x, _end, step)
-    local function _217_()
+    local function _207_()
       if (((step >= 0) and (x < _end)) or ((step < 0) and (x > _end))) then
         return cons(x, fix_range((x + step), _end, step))
       elseif ((step == 0) and (x ~= _end)) then
@@ -6910,33 +6733,33 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         return nil
       end
     end
-    return lazy_seq_2a(_217_)
+    return lazy_seq_2a(_207_)
   end
   local function range(...)
-    local case_219_ = select("#", ...)
-    if (case_219_ == 0) then
+    local case_209_ = select("#", ...)
+    if (case_209_ == 0) then
       return inf_range(0, 1)
-    elseif (case_219_ == 1) then
+    elseif (case_209_ == 1) then
       local _end = ...
       return fix_range(0, _end, 1)
-    elseif (case_219_ == 2) then
+    elseif (case_209_ == 2) then
       local x, _end = ...
       return fix_range(x, _end, 1)
     else
-      local _ = case_219_
+      local _ = case_209_
       return fix_range(...)
     end
   end
   local function realized_3f(s)
-    local case_221_ = gettype(s)
-    if (case_221_ == "lazy-cons") then
+    local case_211_ = gettype(s)
+    if (case_211_ == "lazy-cons") then
       return false
-    elseif (case_221_ == "empty-cons") then
+    elseif (case_211_ == "empty-cons") then
       return true
-    elseif (case_221_ == "cons") then
+    elseif (case_211_ == "cons") then
       return true
     else
-      local _ = case_221_
+      local _ = case_211_
       return error(("expected a sequence, got: %s"):format(_))
     end
   end
@@ -6945,10 +6768,10 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     local function step(f)
       local line = f()
       if ("string" == type(line)) then
-        local function _223_()
+        local function _213_()
           return step(f)
         end
-        return cons(line, lazy_seq_2a(_223_))
+        return cons(line, lazy_seq_2a(_213_))
       else
         return nil
       end
@@ -6957,34 +6780,34 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   end
   local function tree_seq(branch_3f, children, root)
     local function walk(node)
-      local function _225_()
-        local function _226_()
+      local function _215_()
+        local function _216_()
           if branch_3f(node) then
             return mapcat(walk, children(node))
           else
             return nil
           end
         end
-        return cons(node, _226_())
+        return cons(node, _216_())
       end
-      return lazy_seq_2a(_225_)
+      return lazy_seq_2a(_215_)
     end
     return walk(root)
   end
   local function interleave(...)
-    local case_227_, case_228_, case_229_ = select("#", ...), ...
-    if (case_227_ == 0) then
+    local case_217_, case_218_, case_219_ = select("#", ...), ...
+    if (case_217_ == 0) then
       return empty_cons
-    elseif ((case_227_ == 1) and true) then
-      local _3fs = case_228_
-      local function _230_()
+    elseif ((case_217_ == 1) and true) then
+      local _3fs = case_218_
+      local function _220_()
         return _3fs
       end
-      return lazy_seq_2a(_230_)
-    elseif ((case_227_ == 2) and true and true) then
-      local _3fs1 = case_228_
-      local _3fs2 = case_229_
-      local function _231_()
+      return lazy_seq_2a(_220_)
+    elseif ((case_217_ == 2) and true and true) then
+      local _3fs1 = case_218_
+      local _3fs2 = case_219_
+      local function _221_()
         local s1 = seq(_3fs1)
         local s2 = seq(_3fs2)
         if (s1 and s2) then
@@ -6993,22 +6816,22 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
           return nil
         end
       end
-      return lazy_seq_2a(_231_)
+      return lazy_seq_2a(_221_)
     elseif true then
-      local _ = case_227_
+      local _ = case_217_
       local cols = list(...)
-      local function _233_()
+      local function _223_()
         local seqs = map(seq, cols)
-        local function _234_(_2410)
+        local function _224_(_2410)
           return (nil ~= seq(_2410))
         end
-        if every_3f(_234_, seqs) then
+        if every_3f(_224_, seqs) then
           return concat(map(first, seqs), interleave(unpack(map(rest, seqs))))
         else
           return nil
         end
       end
-      return lazy_seq_2a(_233_)
+      return lazy_seq_2a(_223_)
     else
       return nil
     end
@@ -7018,17 +6841,17 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
   end
   local function keys(t)
     assert(("assoc" == kind(t)), "expected an associative table")
-    local function _237_(_241)
+    local function _227_(_241)
       return _241[1]
     end
-    return map(_237_, t)
+    return map(_227_, t)
   end
   local function vals(t)
     assert(("assoc" == kind(t)), "expected an associative table")
-    local function _238_(_241)
+    local function _228_(_241)
       return _241[2]
     end
-    return map(_238_, t)
+    return map(_228_, t)
   end
   local function zipmap(keys0, vals0)
     local t = {}
@@ -7043,30 +6866,30 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
     loop(seq(keys0), seq(vals0))
     return t
   end
-  local _local_240_ = require("io.gitlab.andreyorst.reduced")
-  local reduced = _local_240_.reduced
-  local reduced_3f = _local_240_["reduced?"]
+  local _local_230_ = require("io.gitlab.andreyorst.reduced")
+  local reduced = _local_230_.reduced
+  local reduced_3f = _local_230_["reduced?"]
   local function reduce(f, ...)
-    local case_241_, case_242_, case_243_ = select("#", ...), ...
-    if (case_241_ == 0) then
+    local case_231_, case_232_, case_233_ = select("#", ...), ...
+    if (case_231_ == 0) then
       return error("expected a collection")
-    elseif ((case_241_ == 1) and true) then
-      local _3fcoll = case_242_
-      local case_244_ = count(_3fcoll)
-      if (case_244_ == 0) then
+    elseif ((case_231_ == 1) and true) then
+      local _3fcoll = case_232_
+      local case_234_ = count(_3fcoll)
+      if (case_234_ == 0) then
         return f()
-      elseif (case_244_ == 1) then
+      elseif (case_234_ == 1) then
         return first(_3fcoll)
       else
-        local _ = case_244_
+        local _ = case_234_
         return reduce(f, first(_3fcoll), rest(_3fcoll))
       end
-    elseif ((case_241_ == 2) and true and true) then
-      local _3fval = case_242_
-      local _3fcoll = case_243_
-      local case_246_ = seq(_3fcoll)
-      if (nil ~= case_246_) then
-        local coll = case_246_
+    elseif ((case_231_ == 2) and true and true) then
+      local _3fval = case_232_
+      local _3fcoll = case_233_
+      local case_236_ = seq(_3fcoll)
+      if (nil ~= case_236_) then
+        local coll = case_236_
         local done_3f = false
         local res = _3fval
         for _, v in pairs_2a(coll) do
@@ -7081,7 +6904,7 @@ package.preload["io.gitlab.andreyorst.lazy-seq"] = package.preload["io.gitlab.an
         end
         return res
       else
-        local _ = case_246_
+        local _ = case_236_
         return _3fval
       end
     else
@@ -7147,53 +6970,53 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
   local t_2funpack = (table.unpack or _G.unpack)
   local pairs_2a
   itable.pairs = function(t)
-    local _251_
+    local _241_
     do
-      local case_250_ = getmetatable(t)
-      if ((_G.type(case_250_) == "table") and (nil ~= case_250_.__pairs)) then
-        local p = case_250_.__pairs
-        _251_ = p
+      local case_240_ = getmetatable(t)
+      if ((_G.type(case_240_) == "table") and (nil ~= case_240_.__pairs)) then
+        local p = case_240_.__pairs
+        _241_ = p
       else
-        local _ = case_250_
-        _251_ = pairs
+        local _ = case_240_
+        _241_ = pairs
       end
     end
-    return _251_(t)
+    return _241_(t)
   end
   pairs_2a = itable.pairs
   local ipairs_2a
   itable.ipairs = function(t)
-    local _256_
+    local _246_
     do
-      local case_255_ = getmetatable(t)
-      if ((_G.type(case_255_) == "table") and (nil ~= case_255_.__ipairs)) then
-        local i = case_255_.__ipairs
-        _256_ = i
+      local case_245_ = getmetatable(t)
+      if ((_G.type(case_245_) == "table") and (nil ~= case_245_.__ipairs)) then
+        local i = case_245_.__ipairs
+        _246_ = i
       else
-        local _ = case_255_
-        _256_ = ipairs
+        local _ = case_245_
+        _246_ = ipairs
       end
     end
-    return _256_(t)
+    return _246_(t)
   end
   ipairs_2a = itable.ipairs
   local length_2a
   itable.length = function(t)
-    local _261_
+    local _251_
     do
-      local case_260_ = getmetatable(t)
-      if ((_G.type(case_260_) == "table") and (nil ~= case_260_.__len)) then
-        local l = case_260_.__len
-        _261_ = l
+      local case_250_ = getmetatable(t)
+      if ((_G.type(case_250_) == "table") and (nil ~= case_250_.__len)) then
+        local l = case_250_.__len
+        _251_ = l
       else
-        local _ = case_260_
-        local function _264_(...)
+        local _ = case_250_
+        local function _254_(...)
           return #...
         end
-        _261_ = _264_
+        _251_ = _254_
       end
     end
-    return _261_(t)
+    return _251_(t)
   end
   length_2a = itable.length
   local function copy(t)
@@ -7212,21 +7035,21 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     end
   end
   local function eq(...)
-    local case_268_, case_269_, case_270_ = select("#", ...), ...
-    if ((case_268_ == 0) or (case_268_ == 1)) then
+    local case_258_, case_259_, case_260_ = select("#", ...), ...
+    if ((case_258_ == 0) or (case_258_ == 1)) then
       return true
-    elseif ((case_268_ == 2) and true and true) then
-      local _3fa = case_269_
-      local _3fb = case_270_
+    elseif ((case_258_ == 2) and true and true) then
+      local _3fa = case_259_
+      local _3fb = case_260_
       if (_3fa == _3fb) then
         return true
       else
-        local _271_ = type(_3fb)
-        if ((type(_3fa) == _271_) and (_271_ == "table")) then
+        local _261_ = type(_3fb)
+        if ((type(_3fa) == _261_) and (_261_ == "table")) then
           local res, count_a, count_b = true, 0, 0
           for k, v in pairs_2a(_3fa) do
             if not res then break end
-            local function _272_(...)
+            local function _262_(...)
               local res0 = nil
               for k_2a, v0 in pairs_2a(_3fb) do
                 if res0 then break end
@@ -7237,7 +7060,7 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
               end
               return res0
             end
-            res = eq(v, _272_(...))
+            res = eq(v, _262_(...))
             count_a = (count_a + 1)
           end
           if res then
@@ -7253,9 +7076,9 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
         end
       end
     elseif (true and true and true) then
-      local _ = case_268_
-      local _3fa = case_269_
-      local _3fb = case_270_
+      local _ = case_258_
+      local _3fa = case_259_
+      local _3fb = case_260_
       return (eq(_3fa, _3fb) and eq(select(2, ...)))
     else
       return nil
@@ -7303,67 +7126,67 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     local len = length_2a(t0)
     local proxy = {}
     local __len
-    local function _282_()
+    local function _272_()
       return len
     end
-    __len = _282_
+    __len = _272_
     local __index
-    local function _283_(_241, _242)
+    local function _273_(_241, _242)
       return t0[_242]
     end
-    __index = _283_
+    __index = _273_
     local __newindex
-    local function _284_()
+    local function _274_()
       return error((tostring(proxy) .. " is immutable"), 2)
     end
-    __newindex = _284_
+    __newindex = _274_
     local __pairs
-    local function _285_()
-      local function _286_(_, k)
+    local function _275_()
+      local function _276_(_, k)
         return next(t0, k)
       end
-      return _286_, nil, nil
+      return _276_, nil, nil
     end
-    __pairs = _285_
+    __pairs = _275_
     local __ipairs
-    local function _287_()
-      local function _288_(_, k)
+    local function _277_()
+      local function _278_(_, k)
         return next(t0, k)
       end
-      return _288_
+      return _278_
     end
-    __ipairs = _287_
+    __ipairs = _277_
     local __call
-    local function _289_(_241, _242)
+    local function _279_(_241, _242)
       return t0[_242]
     end
-    __call = _289_
+    __call = _279_
     local __fennelview
-    local function _290_(_241, _242, _243, _244)
+    local function _280_(_241, _242, _243, _244)
       return _242(t0, _243, _244)
     end
-    __fennelview = _290_
+    __fennelview = _280_
     local __fennelrest
-    local function _291_(_241, _242)
+    local function _281_(_241, _242)
       return immutable({t_2funpack(t0, _242)})
     end
-    __fennelrest = _291_
+    __fennelrest = _281_
     return setmetatable(proxy, {__index = __index, __newindex = __newindex, __len = __len, __pairs = __pairs, __ipairs = __ipairs, __call = __call, __metatable = {__len = __len, __pairs = __pairs, __ipairs = __ipairs, __call = __call, __fennelrest = __fennelrest, __fennelview = __fennelview, __index = itable}})
   end
   itable.immutable = immutable
   itable.insert = function(t, ...)
     local t0 = copy(t)
     do
-      local case_292_, case_293_, case_294_ = select("#", ...), ...
-      if (case_292_ == 0) then
+      local case_282_, case_283_, case_284_ = select("#", ...), ...
+      if (case_282_ == 0) then
         error("wrong number of arguments to 'insert'")
-      elseif ((case_292_ == 1) and true) then
-        local _3fv = case_293_
+      elseif ((case_282_ == 1) and true) then
+        local _3fv = case_283_
         t_2finsert(t0, _3fv)
       elseif (true and true and true) then
-        local _ = case_292_
-        local _3fk = case_293_
-        local _3fv = case_294_
+        local _ = case_282_
+        local _3fk = case_283_
+        local _3fv = case_284_
         t_2finsert(t0, _3fk, _3fv)
       else
       end
@@ -7371,22 +7194,22 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     return immutable(t0)
   end
   if t_2fmove then
-    local function _296_(src, start, _end, tgt, dest)
+    local function _286_(src, start, _end, tgt, dest)
       local src0 = copy(src)
       local dest0 = copy(dest)
       return immutable(t_2fmove(src0, start, _end, tgt, dest0))
     end
-    itable.move = _296_
+    itable.move = _286_
   else
     itable.move = nil
   end
   itable.pack = function(...)
-    local function _298_(...)
+    local function _288_(...)
       local tmp_9_ = {...}
       tmp_9_["n"] = select("#", ...)
       return tmp_9_
     end
-    return immutable(_298_(...))
+    return immutable(_288_(...))
   end
   local function remove(t, key)
     local t0 = copy(t)
@@ -7396,7 +7219,7 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
   itable.remove = remove
   itable.concat = function(t, sep, start, _end, serializer, opts)
     local serializer0 = (serializer or tostring)
-    local _299_
+    local _289_
     do
       local tbl_26_ = {}
       local i_27_ = 0
@@ -7408,9 +7231,9 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
         else
         end
       end
-      _299_ = tbl_26_
+      _289_ = tbl_26_
     end
-    return t_2fconcat(_299_, sep, start, _end)
+    return t_2fconcat(_289_, sep, start, _end)
   end
   itable.unpack = function(t, ...)
     return t_2funpack(copy(t), ...)
@@ -7434,9 +7257,9 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     return immutable(t0)
   end
   itable.assoc = assoc
-  local function assoc_in(t, _302_, val)
-    local k = _302_[1]
-    local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_302_, 2)
+  local function assoc_in(t, _292_, val)
+    local k = _292_[1]
+    local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_292_, 2)
     local t0 = (t or {})
     print(ks)
     if next(ks) then
@@ -7447,17 +7270,17 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
   end
   itable["assoc-in"] = assoc_in
   local function update(t, key, f)
-    local function _304_()
+    local function _294_()
       local tmp_9_ = copy(t)
       tmp_9_[key] = f(t[key])
       return tmp_9_
     end
-    return immutable(_304_())
+    return immutable(_294_())
   end
   itable.update = update
-  local function update_in(t, _305_, f)
-    local k = _305_[1]
-    local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_305_, 2)
+  local function update_in(t, _295_, f)
+    local k = _295_[1]
+    local ks = (function (t, k) return ((getmetatable(t) or {}).__fennelrest or function (t, k) return {(table.unpack or unpack)(t, k)} end)(t, k) end)(_295_, 2)
     local t0 = (t or {})
     if next(ks) then
       return assoc(t0, k, update_in(t0[k], ks, f))
@@ -7468,15 +7291,15 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
   itable["update-in"] = update_in
   itable.deepcopy = function(x)
     local function deepcopy_2a(x0, seen)
-      local case_307_ = type(x0)
-      if (case_307_ == "table") then
-        local case_308_ = seen[x0]
-        if (case_308_ == true) then
+      local case_297_ = type(x0)
+      if (case_297_ == "table") then
+        local case_298_ = seen[x0]
+        if (case_298_ == true) then
           return error("immutable tables can't contain self reference", 2)
         else
-          local _ = case_308_
+          local _ = case_298_
           seen[x0] = true
-          local function _309_()
+          local function _299_()
             local tbl_21_ = {}
             for k, v in pairs_2a(x0) do
               local k_22_, v_23_ = deepcopy_2a(k, seen), deepcopy_2a(v, seen)
@@ -7487,17 +7310,17 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
             end
             return tbl_21_
           end
-          return immutable(_309_())
+          return immutable(_299_())
         end
       else
-        local _ = case_307_
+        local _ = case_297_
         return x0
       end
     end
     return deepcopy_2a(x, {})
   end
-  itable.first = function(_313_)
-    local x = _313_[1]
+  itable.first = function(_303_)
+    local x = _303_[1]
     return x
   end
   itable.rest = function(t)
@@ -7518,15 +7341,15 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     return (remove(t, length_2a(t)))
   end
   local function join(...)
-    local case_314_, case_315_, case_316_ = select("#", ...), ...
-    if (case_314_ == 0) then
+    local case_304_, case_305_, case_306_ = select("#", ...), ...
+    if (case_304_ == 0) then
       return nil
-    elseif ((case_314_ == 1) and true) then
-      local _3ft = case_315_
+    elseif ((case_304_ == 1) and true) then
+      local _3ft = case_305_
       return immutable(copy(_3ft))
-    elseif ((case_314_ == 2) and true and true) then
-      local _3ft1 = case_315_
-      local _3ft2 = case_316_
+    elseif ((case_304_ == 2) and true and true) then
+      local _3ft1 = case_305_
+      local _3ft2 = case_306_
       local to = copy(_3ft1)
       local from = (_3ft2 or {})
       for _, v in ipairs_2a(from) do
@@ -7534,9 +7357,9 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
       end
       return immutable(to)
     elseif (true and true and true) then
-      local _ = case_314_
-      local _3ft1 = case_315_
-      local _3ft2 = case_316_
+      local _ = case_304_
+      local _3ft1 = case_305_
+      local _3ft2 = case_306_
       return join(join(_3ft1, _3ft2), select(3, ...))
     else
       return nil
@@ -7557,17 +7380,17 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
   itable.partition = function(...)
     local res = {}
     local function partition_2a(...)
-      local case_318_, case_319_, case_320_, case_321_, case_322_ = select("#", ...), ...
-      if ((case_318_ == 0) or (case_318_ == 1)) then
+      local case_308_, case_309_, case_310_, case_311_, case_312_ = select("#", ...), ...
+      if ((case_308_ == 0) or (case_308_ == 1)) then
         return error("wrong amount arguments to 'partition'")
-      elseif ((case_318_ == 2) and true and true) then
-        local _3fn = case_319_
-        local _3ft = case_320_
+      elseif ((case_308_ == 2) and true and true) then
+        local _3fn = case_309_
+        local _3ft = case_310_
         return partition_2a(_3fn, _3fn, _3ft)
-      elseif ((case_318_ == 3) and true and true and true) then
-        local _3fn = case_319_
-        local _3fstep = case_320_
-        local _3ft = case_321_
+      elseif ((case_308_ == 3) and true and true and true) then
+        local _3fn = case_309_
+        local _3fstep = case_310_
+        local _3ft = case_311_
         local p = take(_3fn, _3ft)
         if (_3fn == length_2a(p)) then
           t_2finsert(res, p)
@@ -7576,11 +7399,11 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
           return nil
         end
       elseif (true and true and true and true and true) then
-        local _ = case_318_
-        local _3fn = case_319_
-        local _3fstep = case_320_
-        local _3fpad = case_321_
-        local _3ft = case_322_
+        local _ = case_308_
+        local _3fn = case_309_
+        local _3fstep = case_310_
+        local _3fpad = case_311_
+        local _3ft = case_312_
         local p = take(_3fn, _3ft)
         if (_3fn == length_2a(p)) then
           t_2finsert(res, p)
@@ -7596,7 +7419,7 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     return immutable(res)
   end
   itable.keys = function(t)
-    local function _326_()
+    local function _316_()
       local tbl_26_ = {}
       local i_27_ = 0
       for k, _ in pairs_2a(t) do
@@ -7609,10 +7432,10 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
       end
       return tbl_26_
     end
-    return immutable(_326_())
+    return immutable(_316_())
   end
   itable.vals = function(t)
-    local function _328_()
+    local function _318_()
       local tbl_26_ = {}
       local i_27_ = 0
       for _, v in pairs_2a(t) do
@@ -7625,7 +7448,7 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
       end
       return tbl_26_
     end
-    return immutable(_328_())
+    return immutable(_318_())
   end
   itable["group-by"] = function(f, t)
     local res = {}
@@ -7633,19 +7456,19 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
     for _, v in pairs_2a(t) do
       local k = f(v)
       if (nil ~= k) then
-        local case_330_ = res[k]
-        if (nil ~= case_330_) then
-          local t_2a = case_330_
+        local case_320_ = res[k]
+        if (nil ~= case_320_) then
+          local t_2a = case_320_
           t_2finsert(t_2a, v)
         else
-          local _0 = case_330_
+          local _0 = case_320_
           res[k] = {v}
         end
       else
         t_2finsert(ungroupped, v)
       end
     end
-    local function _333_()
+    local function _323_()
       local tbl_21_ = {}
       for k, t0 in pairs_2a(res) do
         local k_22_, v_23_ = k, immutable(t0)
@@ -7656,49 +7479,49 @@ package.preload["io.gitlab.andreyorst.itable"] = package.preload["io.gitlab.andr
       end
       return tbl_21_
     end
-    return immutable(_333_()), immutable(ungroupped)
+    return immutable(_323_()), immutable(ungroupped)
   end
   itable.frequencies = function(t)
     local res = setmetatable({}, {__index = deep_index, __newindex = deep_newindex})
     for _, v in pairs_2a(t) do
-      local case_335_ = res[v]
-      if (nil ~= case_335_) then
-        local a = case_335_
+      local case_325_ = res[v]
+      if (nil ~= case_325_) then
+        local a = case_325_
         res[v] = (a + 1)
       else
-        local _0 = case_335_
+        local _0 = case_325_
         res[v] = 1
       end
     end
     return immutable(res)
   end
   itable.sort = function(t, f)
-    local function _337_()
+    local function _327_()
       local tmp_9_ = copy(t)
       t_2fsort(tmp_9_, f)
       return tmp_9_
     end
-    return immutable(_337_())
+    return immutable(_327_())
   end
   itable["immutable?"] = function(t)
-    local case_338_ = getmetatable(t)
-    if ((_G.type(case_338_) == "table") and (case_338_.__index == itable)) then
+    local case_328_ = getmetatable(t)
+    if ((_G.type(case_328_) == "table") and (case_328_.__index == itable)) then
       return true
     else
-      local _ = case_338_
+      local _ = case_328_
       return false
     end
   end
-  local function _340_(_, t, opts)
-    local case_341_ = getmetatable(t)
-    if ((_G.type(case_341_) == "table") and (case_341_.__index == itable)) then
+  local function _330_(_, t, opts)
+    local case_331_ = getmetatable(t)
+    if ((_G.type(case_331_) == "table") and (case_331_.__index == itable)) then
       return t
     else
-      local _0 = case_341_
+      local _0 = case_331_
       return immutable(copy(t), opts)
     end
   end
-  return setmetatable(itable, {__call = _340_})
+  return setmetatable(itable, {__call = _330_})
 end
 package.preload["io.gitlab.andreyorst.inst"] = package.preload["io.gitlab.andreyorst.inst"] or function(...)
   --[[ MIT License
@@ -7873,23 +7696,23 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   You must not remove this notice, or any other, from this software." ]]
   local lib_name = (... or "io.gitlab.andreyorst.async")
   local main_thread = (coroutine.running() or error((lib_name .. " requires Lua 5.2 or higher")))
-  local or_343_ = package.preload["io.gitlab.andreyorst.reduced"]
-  if not or_343_ then
-    local function _344_()
+  local or_333_ = package.preload["io.gitlab.andreyorst.reduced"]
+  if not or_333_ then
+    local function _334_()
       local Reduced
-      local function _346_(_345_, view, options, indent)
-        local x = _345_[1]
+      local function _336_(_335_, view, options, indent)
+        local x = _335_[1]
         return ("#<reduced: " .. view(x, options, (11 + indent)) .. ">")
       end
-      local function _348_(_347_)
-        local x = _347_[1]
+      local function _338_(_337_)
+        local x = _337_[1]
         return x
       end
-      local function _350_(_349_)
-        local x = _349_[1]
+      local function _340_(_339_)
+        local x = _339_[1]
         return ("reduced: " .. tostring(x))
       end
-      Reduced = {__fennelview = _346_, __index = {unbox = _348_}, __name = "reduced", __tostring = _350_}
+      Reduced = {__fennelview = _336_, __index = {unbox = _338_}, __name = "reduced", __tostring = _340_}
       local function reduced(value)
         return setmetatable({value}, Reduced)
       end
@@ -7898,21 +7721,21 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return {is_reduced = reduced_3f, reduced = reduced, ["reduced?"] = reduced_3f}
     end
-    or_343_ = _344_
+    or_333_ = _334_
   end
-  package.preload["io.gitlab.andreyorst.reduced"] = or_343_
-  local _local_351_ = require("io.gitlab.andreyorst.reduced")
-  local reduced = _local_351_.reduced
-  local reduced_3f = _local_351_["reduced?"]
+  package.preload["io.gitlab.andreyorst.reduced"] = or_333_
+  local _local_341_ = require("io.gitlab.andreyorst.reduced")
+  local reduced = _local_341_.reduced
+  local reduced_3f = _local_341_["reduced?"]
   local gethook, sethook
   do
-    local case_352_ = _G.debug
-    if ((_G.type(case_352_) == "table") and (nil ~= case_352_.gethook) and (nil ~= case_352_.sethook)) then
-      local gethook0 = case_352_.gethook
-      local sethook0 = case_352_.sethook
+    local case_342_ = _G.debug
+    if ((_G.type(case_342_) == "table") and (nil ~= case_342_.gethook) and (nil ~= case_342_.sethook)) then
+      local gethook0 = case_342_.gethook
+      local sethook0 = case_342_.sethook
       gethook, sethook = gethook0, sethook0
     else
-      local _ = case_352_
+      local _ = case_342_
       io.stderr:write("WARNING: debug library is unawailable.  ", lib_name, " uses debug.sethook to advance timers.  ", "Time-related features are disabled.\n")
       gethook, sethook = nil
     end
@@ -7932,14 +7755,14 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local m_2ffloor = math.floor
   local m_2fmodf = math.modf
   local function main_thread_3f()
-    local case_354_, case_355_ = c_2frunning()
-    if (case_354_ == nil) then
+    local case_344_, case_345_ = c_2frunning()
+    if (case_344_ == nil) then
       return true
-    elseif (true and (case_355_ == true)) then
-      local _ = case_354_
+    elseif (true and (case_345_ == true)) then
+      local _ = case_344_
       return true
     else
-      local _ = case_354_
+      local _ = case_344_
       return false
     end
   end
@@ -7982,11 +7805,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     for k, v in pairs(t2) do
       local k_22_, v_23_
       do
-        local case_360_ = res[k]
-        if (nil ~= case_360_) then
-          local e = case_360_
+        local case_350_ = res[k]
+        if (nil ~= case_350_) then
+          local e = case_350_
           k_22_, v_23_ = k, f(e, v)
-        elseif (case_360_ == nil) then
+        elseif (case_350_ == nil) then
           k_22_, v_23_ = k, v
         else
           k_22_, v_23_ = nil
@@ -8020,11 +7843,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return h:commit()
   end
-  local _local_366_ = {["active?"] = active_3f, ["blockable?"] = blockable_3f, commit = commit}
-  local active_3f0 = _local_366_["active?"]
-  local blockable_3f0 = _local_366_["blockable?"]
-  local commit0 = _local_366_.commit
-  local Handler = _local_366_
+  local _local_356_ = {["active?"] = active_3f, ["blockable?"] = blockable_3f, commit = commit}
+  local active_3f0 = _local_356_["active?"]
+  local blockable_3f0 = _local_356_["blockable?"]
+  local commit0 = _local_356_.commit
+  local Handler = _local_356_
   local function fn_handler(f, ...)
     local blockable
     if (0 == select("#", ...)) then
@@ -8032,125 +7855,125 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     else
       blockable = ...
     end
-    local _368_ = {}
+    local _358_ = {}
     do
       do
-        local case_369_ = Handler["active?"]
-        if (nil ~= case_369_) then
-          local f_3_auto = case_369_
-          local function _370_(_)
+        local case_359_ = Handler["active?"]
+        if (nil ~= case_359_) then
+          local f_3_auto = case_359_
+          local function _360_(_)
             return true
           end
-          _368_["active?"] = _370_
+          _358_["active?"] = _360_
         else
-          local _ = case_369_
+          local _ = case_359_
           error("Protocol Handler doesn't define method active?")
         end
       end
       do
-        local case_372_ = Handler["blockable?"]
-        if (nil ~= case_372_) then
-          local f_3_auto = case_372_
-          local function _373_(_)
+        local case_362_ = Handler["blockable?"]
+        if (nil ~= case_362_) then
+          local f_3_auto = case_362_
+          local function _363_(_)
             return blockable
           end
-          _368_["blockable?"] = _373_
+          _358_["blockable?"] = _363_
         else
-          local _ = case_372_
+          local _ = case_362_
           error("Protocol Handler doesn't define method blockable?")
         end
       end
-      local case_375_ = Handler.commit
-      if (nil ~= case_375_) then
-        local f_3_auto = case_375_
-        local function _376_(_)
+      local case_365_ = Handler.commit
+      if (nil ~= case_365_) then
+        local f_3_auto = case_365_
+        local function _366_(_)
           return f
         end
-        _368_["commit"] = _376_
+        _358_["commit"] = _366_
       else
-        local _ = case_375_
+        local _ = case_365_
         error("Protocol Handler doesn't define method commit")
       end
     end
-    local function _378_(_241)
+    local function _368_(_241)
       return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Handler" .. ">")
     end
-    return setmetatable({}, {__fennelview = _378_, __index = _368_, __name = "reify"})
+    return setmetatable({}, {__fennelview = _368_, __index = _358_, __name = "reify"})
   end
   local fhnop
-  local function _379_()
+  local function _369_()
     return nil
   end
-  fhnop = fn_handler(_379_)
+  fhnop = fn_handler(_369_)
   local socket
   do
-    local case_380_, case_381_ = pcall(require, "socket")
-    if ((case_380_ == true) and (nil ~= case_381_)) then
-      local s = case_381_
+    local case_370_, case_371_ = pcall(require, "socket")
+    if ((case_370_ == true) and (nil ~= case_371_)) then
+      local s = case_371_
       socket = s
     else
-      local _ = case_380_
+      local _ = case_370_
       socket = nil
     end
   end
   local posix
   do
-    local case_383_, case_384_ = pcall(require, "posix")
-    if ((case_383_ == true) and (nil ~= case_384_)) then
-      local p = case_384_
+    local case_373_, case_374_ = pcall(require, "posix")
+    if ((case_373_ == true) and (nil ~= case_374_)) then
+      local p = case_374_
       posix = p
     else
-      local _ = case_383_
+      local _ = case_373_
       posix = nil
     end
   end
   local time, sleep, time_type
-  local _387_
+  local _377_
   do
-    local t_386_ = socket
-    if (nil ~= t_386_) then
-      t_386_ = t_386_.gettime
+    local t_376_ = socket
+    if (nil ~= t_376_) then
+      t_376_ = t_376_.gettime
     else
     end
-    _387_ = t_386_
+    _377_ = t_376_
   end
-  if _387_ then
+  if _377_ then
     local sleep0 = socket.sleep
-    local function _389_(_241)
+    local function _379_(_241)
       return sleep0((_241 / 1000))
     end
-    time, sleep, time_type = socket.gettime, _389_, "socket"
+    time, sleep, time_type = socket.gettime, _379_, "socket"
   else
-    local _391_
+    local _381_
     do
-      local t_390_ = posix
-      if (nil ~= t_390_) then
-        t_390_ = t_390_.clock_gettime
+      local t_380_ = posix
+      if (nil ~= t_380_) then
+        t_380_ = t_380_.clock_gettime
       else
       end
-      _391_ = t_390_
+      _381_ = t_380_
     end
-    if _391_ then
+    if _381_ then
       local gettime = posix.clock_gettime
       local nanosleep = posix.nanosleep
-      local function _393_()
+      local function _383_()
         local s, ns = gettime()
         return (s + (ns / 1000000000))
       end
-      local function _394_(_241)
+      local function _384_(_241)
         local s, ms = m_2fmodf((_241 / 1000))
         return nanosleep(s, (1000000 * 1000 * ms))
       end
-      time, sleep, time_type = _393_, _394_, "posix"
+      time, sleep, time_type = _383_, _384_, "posix"
     else
       time, sleep, time_type = os.time, nil, "lua"
     end
   end
   local difftime
-  local function _396_(_241, _242)
+  local function _386_(_241, _242)
     return (_241 - _242)
   end
-  difftime = _396_
+  difftime = _386_
   local function add_21(buffer, item)
     if (nil == item) then
       _G.error("Missing argument item on .deps/git/andreyorst/async.fnl/ea0a63f2c87651f9c63ee775f2a066281b868573/src/io/gitlab/andreyorst/async/init.fnl:244", 2)
@@ -8183,27 +8006,58 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return buffer["remove!"](buffer)
   end
-  local _local_402_ = {["add!"] = add_21, ["close-buf!"] = close_buf_21, ["full?"] = full_3f, ["remove!"] = remove_21}
-  local add_210 = _local_402_["add!"]
-  local close_buf_210 = _local_402_["close-buf!"]
-  local full_3f0 = _local_402_["full?"]
-  local remove_210 = _local_402_["remove!"]
-  local Buffer = _local_402_
+  local _local_392_ = {["add!"] = add_21, ["close-buf!"] = close_buf_21, ["full?"] = full_3f, ["remove!"] = remove_21}
+  local add_210 = _local_392_["add!"]
+  local close_buf_210 = _local_392_["close-buf!"]
+  local full_3f0 = _local_392_["full?"]
+  local remove_210 = _local_392_["remove!"]
+  local Buffer = _local_392_
   local FixedBuffer
-  local function _404_(_403_)
-    local buffer = _403_.buf
-    local size = _403_.size
+  local function _394_(_393_)
+    local buffer = _393_.buf
+    local size = _393_.size
     return (#buffer >= size)
   end
-  local function _406_(_405_)
-    local buffer = _405_.buf
+  local function _396_(_395_)
+    local buffer = _395_.buf
     return #buffer
   end
-  local function _408_(_407_, val)
-    local buffer = _407_.buf
-    local this = _407_
+  local function _398_(_397_, val)
+    local buffer = _397_.buf
+    local this = _397_
     assert((val ~= nil), "value must not be nil")
     buffer[(1 + #buffer)] = val
+    return this
+  end
+  local function _400_(_399_)
+    local buffer = _399_.buf
+    if (#buffer > 0) then
+      return t_2fremove(buffer, 1)
+    else
+      return nil
+    end
+  end
+  local function _402_(_)
+    return nil
+  end
+  FixedBuffer = {type = Buffer, ["full?"] = _394_, length = _396_, ["add!"] = _398_, ["remove!"] = _400_, ["close-buf!"] = _402_}
+  local DroppingBuffer
+  local function _403_()
+    return false
+  end
+  local function _405_(_404_)
+    local buffer = _404_.buf
+    return #buffer
+  end
+  local function _407_(_406_, val)
+    local buffer = _406_.buf
+    local size = _406_.size
+    local this = _406_
+    assert((val ~= nil), "value must not be nil")
+    if (#buffer < size) then
+      buffer[(1 + #buffer)] = val
+    else
+    end
     return this
   end
   local function _410_(_409_)
@@ -8217,8 +8071,8 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function _412_(_)
     return nil
   end
-  FixedBuffer = {type = Buffer, ["full?"] = _404_, length = _406_, ["add!"] = _408_, ["remove!"] = _410_, ["close-buf!"] = _412_}
-  local DroppingBuffer
+  DroppingBuffer = {type = Buffer, ["full?"] = _403_, length = _405_, ["add!"] = _407_, ["remove!"] = _410_, ["close-buf!"] = _412_}
+  local SlidingBuffer
   local function _413_()
     return false
   end
@@ -8231,8 +8085,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     local size = _416_.size
     local this = _416_
     assert((val ~= nil), "value must not be nil")
-    if (#buffer < size) then
-      buffer[(1 + #buffer)] = val
+    buffer[(1 + #buffer)] = val
+    if (size < #buffer) then
+      t_2fremove(buffer, 1)
     else
     end
     return this
@@ -8248,52 +8103,20 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function _422_(_)
     return nil
   end
-  DroppingBuffer = {type = Buffer, ["full?"] = _413_, length = _415_, ["add!"] = _417_, ["remove!"] = _420_, ["close-buf!"] = _422_}
-  local SlidingBuffer
+  SlidingBuffer = {type = Buffer, ["full?"] = _413_, length = _415_, ["add!"] = _417_, ["remove!"] = _420_, ["close-buf!"] = _422_}
+  local no_val = {}
+  local PromiseBuffer
   local function _423_()
     return false
   end
-  local function _425_(_424_)
-    local buffer = _424_.buf
-    return #buffer
-  end
-  local function _427_(_426_, val)
-    local buffer = _426_.buf
-    local size = _426_.size
-    local this = _426_
-    assert((val ~= nil), "value must not be nil")
-    buffer[(1 + #buffer)] = val
-    if (size < #buffer) then
-      t_2fremove(buffer, 1)
-    else
-    end
-    return this
-  end
-  local function _430_(_429_)
-    local buffer = _429_.buf
-    if (#buffer > 0) then
-      return t_2fremove(buffer, 1)
-    else
-      return nil
-    end
-  end
-  local function _432_(_)
-    return nil
-  end
-  SlidingBuffer = {type = Buffer, ["full?"] = _423_, length = _425_, ["add!"] = _427_, ["remove!"] = _430_, ["close-buf!"] = _432_}
-  local no_val = {}
-  local PromiseBuffer
-  local function _433_()
-    return false
-  end
-  local function _434_(this)
+  local function _424_(this)
     if rawequal(no_val, this.val) then
       return 0
     else
       return 1
     end
   end
-  local function _436_(this, val)
+  local function _426_(this, val)
     assert((val ~= nil), "value must not be nil")
     if rawequal(no_val, this.val) then
       this["val"] = val
@@ -8301,13 +8124,13 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return this
   end
-  local function _439_(_438_)
-    local value = _438_.val
+  local function _429_(_428_)
+    local value = _428_.val
     return value
   end
-  local function _441_(_440_)
-    local value = _440_.val
-    local this = _440_
+  local function _431_(_430_)
+    local value = _430_.val
+    local this = _430_
     if rawequal(no_val, value) then
       this["val"] = nil
       return nil
@@ -8315,17 +8138,17 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       return nil
     end
   end
-  PromiseBuffer = {type = Buffer, val = no_val, ["full?"] = _433_, length = _434_, ["add!"] = _436_, ["remove!"] = _439_, ["close-buf!"] = _441_}
+  PromiseBuffer = {type = Buffer, val = no_val, ["full?"] = _423_, length = _424_, ["add!"] = _426_, ["remove!"] = _429_, ["close-buf!"] = _431_}
   local function buffer_2a(size, buffer_type)
     do local _ = (size and assert(("number" == type(size)), ("size must be a number: " .. tostring(size)))) end
     assert(not tostring(size):match("%."), "size must be integer")
-    local function _443_(self)
+    local function _433_(self)
       return self:length()
     end
-    local function _444_(_241)
+    local function _434_(_241)
       return ("#<" .. tostring(_241):gsub("table:", "buffer:") .. ">")
     end
-    return setmetatable({size = size, buf = {}}, {__index = buffer_type, __name = "buffer", __len = _443_, __fennelview = _444_})
+    return setmetatable({size = size, buf = {}}, {__index = buffer_type, __name = "buffer", __len = _433_, __fennelview = _434_})
   end
   local function buffer(n)
     return buffer_2a(n, FixedBuffer)
@@ -8348,15 +8171,15 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
   end
   local function unblocking_buffer_3f(buff)
-    local case_446_ = (buffer_3f(buff) and getmetatable(buff).__index)
-    if (case_446_ == SlidingBuffer) then
+    local case_436_ = (buffer_3f(buff) and getmetatable(buff).__index)
+    if (case_436_ == SlidingBuffer) then
       return true
-    elseif (case_446_ == DroppingBuffer) then
+    elseif (case_436_ == DroppingBuffer) then
       return true
-    elseif (case_446_ == PromiseBuffer) then
+    elseif (case_436_ == PromiseBuffer) then
       return true
     else
-      local _ = case_446_
+      local _ = case_436_
       return false
     end
   end
@@ -8379,10 +8202,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   local function cancel_hook(hook)
     if (gethook and sethook) then
-      local case_450_, case_451_, case_452_ = gethook(main_thread)
-      if ((case_450_ == hook) and true and true) then
-        local _3fmask = case_451_
-        local _3fn = case_452_
+      local case_440_, case_441_, case_442_ = gethook(main_thread)
+      if ((case_440_ == hook) and true and true) then
+        local _3fmask = case_441_
+        local _3fn = case_442_
         sethook(main_thread, orig_hook, orig_mask, orig_n)
         return _3fmask, _3fn
       else
@@ -8404,17 +8227,17 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       local done = nil
       for _0 = 1, 1024 do
         if done then break end
-        local case_456_ = next(dispatched_tasks)
-        if (nil ~= case_456_) then
-          local f = case_456_
-          local _457_
+        local case_446_ = next(dispatched_tasks)
+        if (nil ~= case_446_) then
+          local f = case_446_
+          local _447_
           do
             pcall(f)
-            _457_ = f
+            _447_ = f
           end
-          dispatched_tasks[_457_] = nil
+          dispatched_tasks[_447_] = nil
           done = nil
-        elseif (case_456_ == nil) then
+        elseif (case_446_ == nil) then
           done = true
         else
           done = nil
@@ -8442,8 +8265,8 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return nil
   end
-  local function put_active_3f(_462_)
-    local handler = _462_[1]
+  local function put_active_3f(_452_)
+    local handler = _452_[1]
     return handler["active?"](handler)
   end
   local function cleanup_21(t, pred)
@@ -8476,8 +8299,8 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local MAX_QUEUE_SIZE = 1024
   local MAX_DIRTY = 64
   local Channel = {["dirty-puts"] = 0, ["dirty-takes"] = 0}
-  Channel.abort = function(_465_)
-    local puts = _465_.puts
+  Channel.abort = function(_455_)
+    local puts = _455_.puts
     local function recur()
       local putter = t_2fremove(puts, 1)
       if (nil ~= putter) then
@@ -8485,10 +8308,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         local val = putter[2]
         if put_handler["active?"](put_handler) then
           local put_cb = put_handler:commit()
-          local function _466_()
+          local function _456_()
             return put_cb(true)
           end
-          return dispatch(_466_)
+          return dispatch(_456_)
         else
           return recur()
         end
@@ -8498,10 +8321,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return recur
   end
-  Channel["put!"] = function(_469_, val, handler, enqueue_3f)
-    local buf = _469_.buf
-    local closed = _469_.closed
-    local this = _469_
+  Channel["put!"] = function(_459_, val, handler, enqueue_3f)
+    local buf = _459_.buf
+    local closed = _459_.closed
+    local this = _459_
     assert((val ~= nil), "Can't put nil on a channel")
     if not handler["active?"]() then
       return {not closed}
@@ -8520,14 +8343,14 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           if taker["active?"](taker) then
             local ret = taker:commit()
             local val0 = buf["remove!"](buf)
-            local function _470_()
-              local function _471_()
+            local function _460_()
+              local function _461_()
                 return ret(val0)
               end
-              t_2finsert(takers, _471_)
+              t_2finsert(takers, _461_)
               return takers
             end
-            return recur(_470_())
+            return recur(_460_())
           else
             return recur(takers)
           end
@@ -8566,10 +8389,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       if taker then
         local take_cb = taker:commit()
         handler:commit()
-        local function _478_()
+        local function _468_()
           return take_cb(val)
         end
-        dispatch(_478_)
+        dispatch(_468_)
         return {true}
       else
         local puts = this.puts
@@ -8587,53 +8410,53 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             handler_2a = handler
           else
             local thunk = c_2frunning()
-            local _480_ = {}
+            local _470_ = {}
             do
               do
-                local case_481_ = Handler["active?"]
-                if (nil ~= case_481_) then
-                  local f_3_auto = case_481_
-                  local function _482_(_)
+                local case_471_ = Handler["active?"]
+                if (nil ~= case_471_) then
+                  local f_3_auto = case_471_
+                  local function _472_(_)
                     return handler["active?"](handler)
                   end
-                  _480_["active?"] = _482_
+                  _470_["active?"] = _472_
                 else
-                  local _ = case_481_
+                  local _ = case_471_
                   error("Protocol Handler doesn't define method active?")
                 end
               end
               do
-                local case_484_ = Handler["blockable?"]
-                if (nil ~= case_484_) then
-                  local f_3_auto = case_484_
-                  local function _485_(_)
+                local case_474_ = Handler["blockable?"]
+                if (nil ~= case_474_) then
+                  local f_3_auto = case_474_
+                  local function _475_(_)
                     return handler["blockable?"](handler)
                   end
-                  _480_["blockable?"] = _485_
+                  _470_["blockable?"] = _475_
                 else
-                  local _ = case_484_
+                  local _ = case_474_
                   error("Protocol Handler doesn't define method blockable?")
                 end
               end
-              local case_487_ = Handler.commit
-              if (nil ~= case_487_) then
-                local f_3_auto = case_487_
-                local function _488_(_)
-                  local function _489_(...)
+              local case_477_ = Handler.commit
+              if (nil ~= case_477_) then
+                local f_3_auto = case_477_
+                local function _478_(_)
+                  local function _479_(...)
                     return c_2fresume(thunk, ...)
                   end
-                  return _489_
+                  return _479_
                 end
-                _480_["commit"] = _488_
+                _470_["commit"] = _478_
               else
-                local _ = case_487_
+                local _ = case_477_
                 error("Protocol Handler doesn't define method commit")
               end
             end
-            local function _491_(_241)
+            local function _481_(_241)
               return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Handler" .. ">")
             end
-            handler_2a = setmetatable({}, {__fennelview = _491_, __index = _480_, __name = "reify"})
+            handler_2a = setmetatable({}, {__fennelview = _481_, __index = _470_, __name = "reify"})
           end
           t_2finsert(puts, {handler_2a, val})
           if (handler ~= handler_2a) then
@@ -8649,15 +8472,15 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
     end
   end
-  Channel["take!"] = function(_497_, handler, enqueue_3f)
-    local buf = _497_.buf
-    local this = _497_
+  Channel["take!"] = function(_487_, handler, enqueue_3f)
+    local buf = _487_.buf
+    local this = _487_
     if not handler["active?"](handler) then
       return nil
     elseif (not (nil == buf) and (#buf > 0)) then
-      local case_498_ = handler:commit()
-      if (nil ~= case_498_) then
-        local take_cb = case_498_
+      local case_488_ = handler:commit()
+      if (nil ~= case_488_) then
+        local take_cb = case_488_
         local puts = this.puts
         local val = buf["remove!"](buf)
         if (not buf["full?"](buf) and next(puts)) then
@@ -8686,18 +8509,18 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
               return {done_3f, cbs0}
             end
           end
-          local _let_502_ = recur({})
-          local done_3f = _let_502_[1]
-          local cbs = _let_502_[2]
+          local _let_492_ = recur({})
+          local done_3f = _let_492_[1]
+          local cbs = _let_492_[2]
           if done_3f then
             this:abort()
           else
           end
           for _, cb in ipairs(cbs) do
-            local function _504_()
+            local function _494_()
               return cb(true)
             end
-            dispatch(_504_)
+            dispatch(_494_)
           end
         else
         end
@@ -8711,8 +8534,8 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       local function recur()
         local putter0 = t_2fremove(puts, 1)
         if putter0 then
-          local tgt_507_ = putter0[1]
-          if (tgt_507_)["active?"](tgt_507_) then
+          local tgt_497_ = putter0[1]
+          if (tgt_497_)["active?"](tgt_497_) then
             return putter0
           else
             return recur()
@@ -8725,10 +8548,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       if putter then
         local put_cb = putter[1]:commit()
         handler:commit()
-        local function _510_()
+        local function _500_()
           return put_cb(true)
         end
-        dispatch(_510_)
+        dispatch(_500_)
         return {putter[2]}
       elseif this.closed then
         if buf then
@@ -8752,10 +8575,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         local dirty_takes = this["dirty-takes"]
         if (dirty_takes > MAX_DIRTY) then
           this["dirty-takes"] = 0
-          local function _514_(_241)
+          local function _504_(_241)
             return _241["active?"](_241)
           end
-          cleanup_21(takes, _514_)
+          cleanup_21(takes, _504_)
         else
           this["dirty-takes"] = (1 + dirty_takes)
         end
@@ -8766,53 +8589,53 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             handler_2a = handler
           else
             local thunk = c_2frunning()
-            local _516_ = {}
+            local _506_ = {}
             do
               do
-                local case_517_ = Handler["active?"]
-                if (nil ~= case_517_) then
-                  local f_3_auto = case_517_
-                  local function _518_(_)
+                local case_507_ = Handler["active?"]
+                if (nil ~= case_507_) then
+                  local f_3_auto = case_507_
+                  local function _508_(_)
                     return handler["active?"](handler)
                   end
-                  _516_["active?"] = _518_
+                  _506_["active?"] = _508_
                 else
-                  local _ = case_517_
+                  local _ = case_507_
                   error("Protocol Handler doesn't define method active?")
                 end
               end
               do
-                local case_520_ = Handler["blockable?"]
-                if (nil ~= case_520_) then
-                  local f_3_auto = case_520_
-                  local function _521_(_)
+                local case_510_ = Handler["blockable?"]
+                if (nil ~= case_510_) then
+                  local f_3_auto = case_510_
+                  local function _511_(_)
                     return handler["blockable?"](handler)
                   end
-                  _516_["blockable?"] = _521_
+                  _506_["blockable?"] = _511_
                 else
-                  local _ = case_520_
+                  local _ = case_510_
                   error("Protocol Handler doesn't define method blockable?")
                 end
               end
-              local case_523_ = Handler.commit
-              if (nil ~= case_523_) then
-                local f_3_auto = case_523_
-                local function _524_(_)
-                  local function _525_(...)
+              local case_513_ = Handler.commit
+              if (nil ~= case_513_) then
+                local f_3_auto = case_513_
+                local function _514_(_)
+                  local function _515_(...)
                     return c_2fresume(thunk, ...)
                   end
-                  return _525_
+                  return _515_
                 end
-                _516_["commit"] = _524_
+                _506_["commit"] = _514_
               else
-                local _ = case_523_
+                local _ = case_513_
                 error("Protocol Handler doesn't define method commit")
               end
             end
-            local function _527_(_241)
+            local function _517_(_241)
               return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Handler" .. ">")
             end
-            handler_2a = setmetatable({}, {__fennelview = _527_, __index = _516_, __name = "reify"})
+            handler_2a = setmetatable({}, {__fennelview = _517_, __index = _506_, __name = "reify"})
           end
           t_2finsert(takes, handler_2a)
           if (handler ~= handler_2a) then
@@ -8850,10 +8673,10 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             else
               val = nil
             end
-            local function _535_()
+            local function _525_()
               return take_cb(val)
             end
-            dispatch(_535_)
+            dispatch(_525_)
           else
           end
           return recur()
@@ -8878,11 +8701,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     return nil
   end
   local function add_21_2a(buf, ...)
-    local case_540_, case_541_ = select("#", ...), ...
-    if ((case_540_ == 1) and true) then
-      local _3fval = case_541_
+    local case_530_, case_531_ = select("#", ...), ...
+    if ((case_530_ == 1) and true) then
+      local _3fval = case_531_
       return buf["add!"](buf, _3fval)
-    elseif (case_540_ == 0) then
+    elseif (case_530_ == 0) then
       return buf
     else
       return nil
@@ -8909,33 +8732,33 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     local err_handler0 = (err_handler or err_handler_2a)
     local handler
-    local function _545_(ch, err)
-      local case_546_ = err_handler0(err)
-      if (nil ~= case_546_) then
-        local res = case_546_
+    local function _535_(ch, err)
+      local case_536_ = err_handler0(err)
+      if (nil ~= case_536_) then
+        local res = case_536_
         return ch["put!"](ch, res, fhnop)
       else
         return nil
       end
     end
-    handler = _545_
+    handler = _535_
     local c = {puts = {}, takes = {}, buf = buffer0, ["err-handler"] = handler}
     c["add!"] = function(...)
-      local case_548_, case_549_ = pcall(add_211, ...)
-      if ((case_548_ == true) and true) then
-        local _ = case_549_
+      local case_538_, case_539_ = pcall(add_211, ...)
+      if ((case_538_ == true) and true) then
+        local _ = case_539_
         return _
-      elseif ((case_548_ == false) and (nil ~= case_549_)) then
-        local e = case_549_
+      elseif ((case_538_ == false) and (nil ~= case_539_)) then
+        local e = case_539_
         return handler(c, e)
       else
         return nil
       end
     end
-    local function _551_(_241)
+    local function _541_(_241)
       return ("#<" .. tostring(_241):gsub("table:", "ManyToManyChannel:") .. ">")
     end
-    return setmetatable(c, {__index = Channel, __name = "ManyToManyChannel", __fennelview = _551_})
+    return setmetatable(c, {__index = Channel, __name = "ManyToManyChannel", __fennelview = _541_})
   end
   local function promise_chan(xform, err_handler)
     return chan(promise_buffer(), xform, err_handler)
@@ -8960,12 +8783,12 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       local s = (msecs / 1000)
       if (not warned and not (m_2fceil(s) == s)) then
         warned = true
-        local function _553_()
+        local function _543_()
           warned = false
           return nil
         end
-        local tgt_554_ = timeout(10000)
-        do end (tgt_554_)["take!"](tgt_554_, fn_handler(_553_))
+        local tgt_544_ = timeout(10000)
+        do end (tgt_544_)["take!"](tgt_544_, fn_handler(_543_))
         io.stderr:write(("WARNING Lua doesn't support sub-second time precision.  " .. "Timeout rounded to the next nearest whole second.  " .. "Install luasocket or luaposix to get sub-second precision.\n"))
       else
       end
@@ -8976,13 +8799,13 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     local t = ((m_2fceil((time() * 100)) / 100) + dt)
     local c
-    local or_557_ = timeouts[t]
-    if not or_557_ then
+    local or_547_ = timeouts[t]
+    if not or_547_ then
       local c0 = chan()
       timeouts[t] = c0
-      or_557_ = c0
+      or_547_ = c0
     end
-    c = or_557_
+    c = or_547_
     schedule_hook(process_messages, n_instr)
     return c
   end
@@ -8996,17 +8819,17 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       on_caller_3f = ...
     end
     do
-      local case_560_ = port["take!"](port, fn_handler(fn1))
-      if (nil ~= case_560_) then
-        local retb = case_560_
+      local case_550_ = port["take!"](port, fn_handler(fn1))
+      if (nil ~= case_550_) then
+        local retb = case_550_
         local val = retb[1]
         if on_caller_3f then
           fn1(val)
         else
-          local function _561_()
+          local function _551_()
             return fn1(val)
           end
-          dispatch(_561_)
+          dispatch(_551_)
         end
       else
       end
@@ -9033,14 +8856,14 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       t_2fsort(tmp_9_)
       timers = tmp_9_
     end
-    local case_565_ = timers[1]
-    local and_566_ = (nil ~= case_565_)
-    if and_566_ then
-      local t = case_565_
-      and_566_ = (sleep and not next(dispatched_tasks))
+    local case_555_ = timers[1]
+    local and_556_ = (nil ~= case_555_)
+    if and_556_ then
+      local t = case_555_
+      and_556_ = (sleep and not next(dispatched_tasks))
     end
-    if and_566_ then
-      local t = case_565_
+    if and_556_ then
+      local t = case_555_
       local t0 = (t - time())
       if (t0 > 0) then
         sleep(t0)
@@ -9049,7 +8872,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return true
     else
-      local _ = case_565_
+      local _ = case_555_
       if next(dispatched_tasks) then
         process_messages("manual")
         return true
@@ -9061,11 +8884,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function _3c_21_21(port)
     assert(main_thread_3f(), "<!! used not on the main thread")
     local val = nil
-    local function _571_(_241)
+    local function _561_(_241)
       val = _241
       return nil
     end
-    take_21(port, _571_)
+    take_21(port, _561_)
     while ((val == nil) and not port.closed and try_sleep()) do
     end
     if ((nil == val) and not port.closed) then
@@ -9077,9 +8900,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function _3c_21(port)
     assert(not main_thread_3f(), "<! used not in (go ...) block")
     assert(chan_3f(port), "expected a channel as first argument")
-    local case_573_ = port["take!"](port, fhnop)
-    if (nil ~= case_573_) then
-      local retb = case_573_
+    local case_563_ = port["take!"](port, fhnop)
+    if (nil ~= case_563_) then
+      local retb = case_563_
       return retb[1]
     else
       return nil
@@ -9087,35 +8910,35 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   local function put_21(port, val, ...)
     assert(chan_3f(port), "expected a channel as first argument")
-    local case_575_ = select("#", ...)
-    if (case_575_ == 0) then
-      local case_576_ = port["put!"](port, val, fhnop)
-      if (nil ~= case_576_) then
-        local retb = case_576_
+    local case_565_ = select("#", ...)
+    if (case_565_ == 0) then
+      local case_566_ = port["put!"](port, val, fhnop)
+      if (nil ~= case_566_) then
+        local retb = case_566_
         return retb[1]
       else
-        local _ = case_576_
+        local _ = case_566_
         return true
       end
-    elseif (case_575_ == 1) then
+    elseif (case_565_ == 1) then
       return put_21(port, val, ..., true)
-    elseif (case_575_ == 2) then
+    elseif (case_565_ == 2) then
       local fn1, on_caller_3f = ...
-      local case_578_ = port["put!"](port, val, fn_handler(fn1))
-      if (nil ~= case_578_) then
-        local retb = case_578_
+      local case_568_ = port["put!"](port, val, fn_handler(fn1))
+      if (nil ~= case_568_) then
+        local retb = case_568_
         local ret = retb[1]
         if on_caller_3f then
           fn1(ret)
         else
-          local function _579_()
+          local function _569_()
             return fn1(ret)
           end
-          dispatch(_579_)
+          dispatch(_569_)
         end
         return ret
       else
-        local _ = case_578_
+        local _ = case_568_
         return true
       end
     else
@@ -9125,11 +8948,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function _3e_21_21(port, val)
     assert(main_thread_3f(), ">!! used not on the main thread")
     local not_done, res = true
-    local function _583_(_241)
+    local function _573_(_241)
       not_done, res = false, _241
       return nil
     end
-    put_21(port, val, _583_)
+    put_21(port, val, _573_)
     while (not_done and try_sleep(port)) do
     end
     if (not_done and not port.closed) then
@@ -9140,9 +8963,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   local function _3e_21(port, val)
     assert(not main_thread_3f(), ">! used not in (go ...) block")
-    local case_585_ = port["put!"](port, val, fhnop)
-    if (nil ~= case_585_) then
-      local retb = case_585_
+    local case_575_ = port["put!"](port, val, fhnop)
+    if (nil ~= case_575_) then
+      local retb = case_575_
       return retb[1]
     else
       return nil
@@ -9155,21 +8978,21 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function go_2a(fn1)
     local c = chan(1)
     do
-      local case_587_, case_588_
-      local function _589_()
+      local case_577_, case_578_
+      local function _579_()
         do
-          local case_590_ = fn1()
-          if (nil ~= case_590_) then
-            local val = case_590_
+          local case_580_ = fn1()
+          if (nil ~= case_580_) then
+            local val = case_580_
             _3e_21(c, val)
           else
           end
         end
         return close_21(c)
       end
-      case_587_, case_588_ = c_2fresume(c_2fcreate(_589_))
-      if ((case_587_ == false) and (nil ~= case_588_)) then
-        local msg = case_588_
+      case_577_, case_578_ = c_2fresume(c_2fcreate(_579_))
+      if ((case_577_ == false) and (nil ~= case_578_)) then
+        local msg = case_578_
         c["err-handler"](c, msg)
         close_21(c)
       else
@@ -9202,98 +9025,98 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   local function alt_flag()
     local atom = {flag = true}
-    local _594_ = {}
+    local _584_ = {}
     do
       do
-        local case_595_ = Handler["active?"]
-        if (nil ~= case_595_) then
-          local f_3_auto = case_595_
-          local function _596_(_)
+        local case_585_ = Handler["active?"]
+        if (nil ~= case_585_) then
+          local f_3_auto = case_585_
+          local function _586_(_)
             return atom.flag
           end
-          _594_["active?"] = _596_
+          _584_["active?"] = _586_
         else
-          local _ = case_595_
+          local _ = case_585_
           error("Protocol Handler doesn't define method active?")
         end
       end
       do
-        local case_598_ = Handler["blockable?"]
-        if (nil ~= case_598_) then
-          local f_3_auto = case_598_
-          local function _599_(_)
+        local case_588_ = Handler["blockable?"]
+        if (nil ~= case_588_) then
+          local f_3_auto = case_588_
+          local function _589_(_)
             return true
           end
-          _594_["blockable?"] = _599_
+          _584_["blockable?"] = _589_
         else
-          local _ = case_598_
+          local _ = case_588_
           error("Protocol Handler doesn't define method blockable?")
         end
       end
-      local case_601_ = Handler.commit
-      if (nil ~= case_601_) then
-        local f_3_auto = case_601_
-        local function _602_(_)
+      local case_591_ = Handler.commit
+      if (nil ~= case_591_) then
+        local f_3_auto = case_591_
+        local function _592_(_)
           atom.flag = false
           return true
         end
-        _594_["commit"] = _602_
+        _584_["commit"] = _592_
       else
-        local _ = case_601_
+        local _ = case_591_
         error("Protocol Handler doesn't define method commit")
       end
     end
-    local function _604_(_241)
+    local function _594_(_241)
       return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Handler" .. ">")
     end
-    return setmetatable({}, {__fennelview = _604_, __index = _594_, __name = "reify"})
+    return setmetatable({}, {__fennelview = _594_, __index = _584_, __name = "reify"})
   end
   local function alt_handler(flag, cb)
-    local _605_ = {}
+    local _595_ = {}
     do
       do
-        local case_606_ = Handler["active?"]
-        if (nil ~= case_606_) then
-          local f_3_auto = case_606_
-          local function _607_(_)
+        local case_596_ = Handler["active?"]
+        if (nil ~= case_596_) then
+          local f_3_auto = case_596_
+          local function _597_(_)
             return flag["active?"](flag)
           end
-          _605_["active?"] = _607_
+          _595_["active?"] = _597_
         else
-          local _ = case_606_
+          local _ = case_596_
           error("Protocol Handler doesn't define method active?")
         end
       end
       do
-        local case_609_ = Handler["blockable?"]
-        if (nil ~= case_609_) then
-          local f_3_auto = case_609_
-          local function _610_(_)
+        local case_599_ = Handler["blockable?"]
+        if (nil ~= case_599_) then
+          local f_3_auto = case_599_
+          local function _600_(_)
             return true
           end
-          _605_["blockable?"] = _610_
+          _595_["blockable?"] = _600_
         else
-          local _ = case_609_
+          local _ = case_599_
           error("Protocol Handler doesn't define method blockable?")
         end
       end
-      local case_612_ = Handler.commit
-      if (nil ~= case_612_) then
-        local f_3_auto = case_612_
-        local function _613_(_)
+      local case_602_ = Handler.commit
+      if (nil ~= case_602_) then
+        local f_3_auto = case_602_
+        local function _603_(_)
           flag:commit()
           return cb
         end
-        _605_["commit"] = _613_
+        _595_["commit"] = _603_
       else
-        local _ = case_612_
+        local _ = case_602_
         error("Protocol Handler doesn't define method commit")
       end
     end
-    local function _615_(_241)
+    local function _605_(_241)
       return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Handler" .. ">")
     end
-    return setmetatable({}, {__fennelview = _615_, __index = _605_, __name = "reify"})
+    return setmetatable({}, {__fennelview = _605_, __index = _595_, __name = "reify"})
   end
   local function alts_21(ports, ...)
     assert(not main_thread_3f(), "called alts! on the main thread")
@@ -9303,17 +9126,17 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     local no_def = {}
     local opts
     do
-      local case_616_, case_617_ = select("#", ...), ...
-      if (case_616_ == 0) then
+      local case_606_, case_607_ = select("#", ...), ...
+      if (case_606_ == 0) then
         opts = {default = no_def}
       else
-        local and_618_ = ((case_616_ == 1) and (nil ~= case_617_))
-        if and_618_ then
-          local t = case_617_
-          and_618_ = ("table" == type(t))
+        local and_608_ = ((case_606_ == 1) and (nil ~= case_607_))
+        if and_608_ then
+          local t = case_607_
+          and_608_ = ("table" == type(t))
         end
-        if and_618_ then
-          local t = case_617_
+        if and_608_ then
+          local t = case_607_
           local res = {default = no_def}
           for k, v in pairs(t) do
             res[k] = v
@@ -9321,7 +9144,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           end
           opts = res
         else
-          local _ = case_616_
+          local _ = case_606_
           local res = {default = no_def}
           for i = 1, arglen, 2 do
             local k, v = select(i, ...)
@@ -9346,36 +9169,36 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       local retb, port
       do
-        local case_622_ = ports[id]
-        local and_623_ = ((_G.type(case_622_) == "table") and true and true)
-        if and_623_ then
-          local _3fc = case_622_[1]
-          local _3fv = case_622_[2]
-          and_623_ = chan_3f(_3fc)
+        local case_612_ = ports[id]
+        local and_613_ = ((_G.type(case_612_) == "table") and true and true)
+        if and_613_ then
+          local _3fc = case_612_[1]
+          local _3fv = case_612_[2]
+          and_613_ = chan_3f(_3fc)
         end
-        if and_623_ then
-          local _3fc = case_622_[1]
-          local _3fv = case_622_[2]
-          local function _625_(_241)
+        if and_613_ then
+          local _3fc = case_612_[1]
+          local _3fv = case_612_[2]
+          local function _615_(_241)
             put_21(res_ch, {_241, _3fc})
             return close_21(res_ch)
           end
-          retb, port = _3fc["put!"](_3fc, _3fv, alt_handler(flag, _625_), true), _3fc
+          retb, port = _3fc["put!"](_3fc, _3fv, alt_handler(flag, _615_), true), _3fc
         else
-          local and_626_ = true
-          if and_626_ then
-            local _3fc = case_622_
-            and_626_ = chan_3f(_3fc)
+          local and_616_ = true
+          if and_616_ then
+            local _3fc = case_612_
+            and_616_ = chan_3f(_3fc)
           end
-          if and_626_ then
-            local _3fc = case_622_
-            local function _628_(_241)
+          if and_616_ then
+            local _3fc = case_612_
+            local function _618_(_241)
               put_21(res_ch, {_241, _3fc})
               return close_21(res_ch)
             end
-            retb, port = _3fc["take!"](_3fc, alt_handler(flag, _628_), true), _3fc
+            retb, port = _3fc["take!"](_3fc, alt_handler(flag, _618_), true), _3fc
           else
-            local _ = case_622_
+            local _ = case_612_
             retb, port = error(("expected a channel: " .. tostring(_)))
           end
         end
@@ -9396,9 +9219,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function offer_21(port, val)
     assert(chan_3f(port), "expected a channel as first argument")
     if (next(port.takes) or (port.buf and not port.buf["full?"](port.buf))) then
-      local case_632_ = port["put!"](port, val, fhnop)
-      if (nil ~= case_632_) then
-        local retb = case_632_
+      local case_622_ = port["put!"](port, val, fhnop)
+      if (nil ~= case_622_) then
+        local retb = case_622_
         return retb[1]
       else
         return nil
@@ -9410,9 +9233,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function poll_21(port)
     assert(chan_3f(port), "expected a channel")
     if (next(port.puts) or (port.buf and (nil ~= next(port.buf.buf)))) then
-      local case_635_ = port["take!"](port, fhnop)
-      if (nil ~= case_635_) then
-        local retb = case_635_
+      local case_625_ = port["take!"](port, fhnop)
+      if (nil ~= case_625_) then
+        local retb = case_625_
         return retb[1]
       else
         return nil
@@ -9428,9 +9251,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     else
       close_3f = ...
     end
-    local _let_639_ = require("io.gitlab.andreyorst.async")
-    local go_3_auto = _let_639_["go*"]
-    local function _640_()
+    local _let_629_ = require("io.gitlab.andreyorst.async")
+    local go_3_auto = _let_629_["go*"]
+    local function _630_()
       local function recur()
         local val = _3c_21(from)
         if (nil == val) then
@@ -9446,14 +9269,14 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return recur()
     end
-    return go_3_auto(_640_)
+    return go_3_auto(_630_)
   end
   local function pipeline_2a(n, to, xf, from, close_3f, err_handler, kind)
     local jobs = chan(n)
     local results = chan(n)
     local finishes = ((kind == "async") and chan(n))
     local process
-    local function _643_(job)
+    local function _633_(job)
       if (job == nil) then
         close_21(results)
         return nil
@@ -9462,13 +9285,13 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         local p = job[2]
         local res = chan(1, xf, err_handler)
         do
-          local _let_644_ = require("io.gitlab.andreyorst.async")
-          local go_1_auto = _let_644_["go*"]
-          local function _645_()
+          local _let_634_ = require("io.gitlab.andreyorst.async")
+          local go_1_auto = _let_634_["go*"]
+          local function _635_()
             _3e_21(res, v)
             return close_21(res)
           end
-          go_1_auto(_645_)
+          go_1_auto(_635_)
         end
         put_21(p, res)
         return true
@@ -9476,9 +9299,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         return nil
       end
     end
-    process = _643_
+    process = _633_
     local async
-    local function _647_(job)
+    local function _637_(job)
       if (job == nil) then
         close_21(results)
         close_21(finishes)
@@ -9494,12 +9317,12 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         return nil
       end
     end
-    async = _647_
+    async = _637_
     for _ = 1, n do
       if (kind == "compute") then
-        local _let_649_ = require("io.gitlab.andreyorst.async")
-        local go_3_auto = _let_649_["go*"]
-        local function _650_()
+        local _let_639_ = require("io.gitlab.andreyorst.async")
+        local go_3_auto = _let_639_["go*"]
+        local function _640_()
           local function recur()
             local job = _3c_21(jobs)
             if process(job) then
@@ -9510,11 +9333,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           end
           return recur()
         end
-        go_3_auto(_650_)
+        go_3_auto(_640_)
       elseif (kind == "async") then
-        local _let_652_ = require("io.gitlab.andreyorst.async")
-        local go_3_auto = _let_652_["go*"]
-        local function _653_()
+        local _let_642_ = require("io.gitlab.andreyorst.async")
+        local go_3_auto = _let_642_["go*"]
+        local function _643_()
           local function recur()
             local job = _3c_21(jobs)
             if async(job) then
@@ -9526,20 +9349,20 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           end
           return recur()
         end
-        go_3_auto(_653_)
+        go_3_auto(_643_)
       else
       end
     end
     do
-      local _let_656_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_656_["go*"]
-      local function _657_()
+      local _let_646_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_646_["go*"]
+      local function _647_()
         local function recur()
-          local case_658_ = _3c_21(from)
-          if (case_658_ == nil) then
+          local case_648_ = _3c_21(from)
+          if (case_648_ == nil) then
             return close_21(jobs)
-          elseif (nil ~= case_658_) then
-            local v = case_658_
+          elseif (nil ~= case_648_) then
+            local v = case_648_
             local p = chan(1)
             _3e_21(jobs, {v, p})
             _3e_21(results, p)
@@ -9550,28 +9373,28 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_657_)
+      go_3_auto(_647_)
     end
-    local _let_660_ = require("io.gitlab.andreyorst.async")
-    local go_3_auto = _let_660_["go*"]
-    local function _661_()
+    local _let_650_ = require("io.gitlab.andreyorst.async")
+    local go_3_auto = _let_650_["go*"]
+    local function _651_()
       local function recur()
-        local case_662_ = _3c_21(results)
-        if (case_662_ == nil) then
+        local case_652_ = _3c_21(results)
+        if (case_652_ == nil) then
           if close_3f then
             return close_21(to)
           else
             return nil
           end
-        elseif (nil ~= case_662_) then
-          local p = case_662_
-          local case_664_ = _3c_21(p)
-          if (nil ~= case_664_) then
-            local res = case_664_
+        elseif (nil ~= case_652_) then
+          local p = case_652_
+          local case_654_ = _3c_21(p)
+          if (nil ~= case_654_) then
+            local res = case_654_
             local function loop_2a()
-              local case_665_ = _3c_21(res)
-              if (nil ~= case_665_) then
-                local val = case_665_
+              local case_655_ = _3c_21(res)
+              if (nil ~= case_655_) then
+                local val = case_655_
                 _3e_21(to, val)
                 return loop_2a()
               else
@@ -9593,7 +9416,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return recur()
     end
-    return go_3_auto(_661_)
+    return go_3_auto(_651_)
   end
   local function pipeline_async(n, to, af, from, ...)
     local close_3f
@@ -9617,22 +9440,22 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     local tc = chan(t_buf_or_n)
     local fc = chan(f_buf_or_n)
     do
-      local _let_672_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_672_["go*"]
-      local function _673_()
+      local _let_662_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_662_["go*"]
+      local function _663_()
         local function recur()
           local v = _3c_21(ch)
           if (nil == v) then
             close_21(tc)
             return close_21(fc)
           else
-            local _674_
+            local _664_
             if p(v) then
-              _674_ = tc
+              _664_ = tc
             else
-              _674_ = fc
+              _664_ = fc
             end
-            if _3e_21(_674_, v) then
+            if _3e_21(_664_, v) then
               return recur()
             else
               return nil
@@ -9641,16 +9464,16 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_673_)
+      go_3_auto(_663_)
     end
     return {tc, fc}
   end
   local function reduce(f, init, ch)
-    local _let_679_ = require("io.gitlab.andreyorst.async")
-    local go_3_auto = _let_679_["go*"]
-    local function _680_()
-      local _2_678_ = init
-      local ret = _2_678_
+    local _let_669_ = require("io.gitlab.andreyorst.async")
+    local go_3_auto = _let_669_["go*"]
+    local function _670_()
+      local _2_668_ = init
+      local ret = _2_668_
       local function recur(ret0)
         local v = _3c_21(ch)
         if (nil == v) then
@@ -9664,19 +9487,19 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           end
         end
       end
-      return recur(_2_678_)
+      return recur(_2_668_)
     end
-    return go_3_auto(_680_)
+    return go_3_auto(_670_)
   end
   local function transduce(xform, f, init, ch)
     local f0 = xform(f)
-    local _let_683_ = require("io.gitlab.andreyorst.async")
-    local go_1_auto = _let_683_["go*"]
-    local function _684_()
+    local _let_673_ = require("io.gitlab.andreyorst.async")
+    local go_1_auto = _let_673_["go*"]
+    local function _674_()
       local ret = _3c_21(reduce(f0, init, ch))
       return f0(ret)
     end
-    return go_1_auto(_684_)
+    return go_1_auto(_674_)
   end
   local function onto_chan_21(ch, coll, ...)
     local close_3f
@@ -9685,9 +9508,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     else
       close_3f = ...
     end
-    local _let_686_ = require("io.gitlab.andreyorst.async")
-    local go_1_auto = _let_686_["go*"]
-    local function _687_()
+    local _let_676_ = require("io.gitlab.andreyorst.async")
+    local go_1_auto = _let_676_["go*"]
+    local function _677_()
       for _, v in ipairs(coll) do
         _3e_21(ch, v)
       end
@@ -9697,7 +9520,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return ch
     end
-    return go_1_auto(_687_)
+    return go_1_auto(_677_)
   end
   local function bounded_length(bound, t)
     return m_2fmin(bound, #t)
@@ -9709,7 +9532,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   end
   local function pipeline_unordered_2a(n, to, xf, from, close_3f, err_handler, kind)
     local closes
-    local function _689_()
+    local function _679_()
       local tbl_26_ = {}
       local i_27_ = 0
       for _ = 1, (n - 1) do
@@ -9722,19 +9545,19 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return tbl_26_
     end
-    closes = to_chan_21(_689_())
+    closes = to_chan_21(_679_())
     local process
-    local function _691_(v, p)
+    local function _681_(v, p)
       local res = chan(1, xf, err_handler)
-      local _let_692_ = require("io.gitlab.andreyorst.async")
-      local go_1_auto = _let_692_["go*"]
-      local function _693_()
+      local _let_682_ = require("io.gitlab.andreyorst.async")
+      local go_1_auto = _let_682_["go*"]
+      local function _683_()
         _3e_21(res, v)
         close_21(res)
         local function loop()
-          local case_694_ = _3c_21(res)
-          if (nil ~= case_694_) then
-            local v0 = case_694_
+          local case_684_ = _3c_21(res)
+          if (nil ~= case_684_) then
+            local v0 = case_684_
             put_21(p, v0)
             return loop()
           else
@@ -9744,45 +9567,45 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         loop()
         return close_21(p)
       end
-      return go_1_auto(_693_)
+      return go_1_auto(_683_)
     end
-    process = _691_
+    process = _681_
     for _ = 1, n do
-      local _let_696_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_696_["go*"]
-      local function _697_()
+      local _let_686_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_686_["go*"]
+      local function _687_()
         local function recur()
-          local case_698_ = _3c_21(from)
-          if (nil ~= case_698_) then
-            local v = case_698_
+          local case_688_ = _3c_21(from)
+          if (nil ~= case_688_) then
+            local v = case_688_
             local c = chan(1)
             if (kind == "compute") then
-              local _let_699_ = require("io.gitlab.andreyorst.async")
-              local go_1_auto = _let_699_["go*"]
-              local function _700_()
+              local _let_689_ = require("io.gitlab.andreyorst.async")
+              local go_1_auto = _let_689_["go*"]
+              local function _690_()
                 return process(v, c)
               end
-              go_1_auto(_700_)
+              go_1_auto(_690_)
             elseif (kind == "async") then
-              local _let_701_ = require("io.gitlab.andreyorst.async")
-              local go_1_auto = _let_701_["go*"]
-              local function _702_()
+              local _let_691_ = require("io.gitlab.andreyorst.async")
+              local go_1_auto = _let_691_["go*"]
+              local function _692_()
                 return xf(v, c)
               end
-              go_1_auto(_702_)
+              go_1_auto(_692_)
             else
             end
             local function loop()
-              local case_704_ = _3c_21(c)
-              if (nil ~= case_704_) then
-                local res = case_704_
+              local case_694_ = _3c_21(c)
+              if (nil ~= case_694_) then
+                local res = case_694_
                 if _3e_21(to, res) then
                   return loop()
                 else
                   return nil
                 end
               else
-                local _0 = case_704_
+                local _0 = case_694_
                 return true
               end
             end
@@ -9792,7 +9615,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
               return nil
             end
           else
-            local _0 = case_698_
+            local _0 = case_688_
             if (close_3f and (nil == _3c_21(closes))) then
               return close_21(to)
             else
@@ -9802,7 +9625,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_697_)
+      go_3_auto(_687_)
     end
     return nil
   end
@@ -9827,9 +9650,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function muxch_2a(_)
     return _["muxch*"](_)
   end
-  local _local_712_ = {["muxch*"] = muxch_2a}
-  local muxch_2a0 = _local_712_["muxch*"]
-  local Mux = _local_712_
+  local _local_702_ = {["muxch*"] = muxch_2a}
+  local muxch_2a0 = _local_702_["muxch*"]
+  local Mux = _local_702_
   local function tap_2a(_, ch, close_3f)
     if (nil == close_3f) then
       _G.error("Missing argument close? on .deps/git/andreyorst/async.fnl/ea0a63f2c87651f9c63ee775f2a066281b868573/src/io/gitlab/andreyorst/async/init.fnl:1208", 2)
@@ -9851,80 +9674,80 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function untap_all_2a(_)
     return _["untap-all*"](_)
   end
-  local _local_716_ = {["tap*"] = tap_2a, ["untap*"] = untap_2a, ["untap-all*"] = untap_all_2a}
-  local tap_2a0 = _local_716_["tap*"]
-  local untap_2a0 = _local_716_["untap*"]
-  local untap_all_2a0 = _local_716_["untap-all*"]
-  local Mult = _local_716_
+  local _local_706_ = {["tap*"] = tap_2a, ["untap*"] = untap_2a, ["untap-all*"] = untap_all_2a}
+  local tap_2a0 = _local_706_["tap*"]
+  local untap_2a0 = _local_706_["untap*"]
+  local untap_all_2a0 = _local_706_["untap-all*"]
+  local Mult = _local_706_
   local function mult(ch)
     local dctr = nil
     local atom = {cs = {}}
     local m
     do
-      local _717_ = {}
+      local _707_ = {}
       do
         do
-          local case_718_ = Mux["muxch*"]
-          if (nil ~= case_718_) then
-            local f_3_auto = case_718_
-            local function _719_(_)
+          local case_708_ = Mux["muxch*"]
+          if (nil ~= case_708_) then
+            local f_3_auto = case_708_
+            local function _709_(_)
               return ch
             end
-            _717_["muxch*"] = _719_
+            _707_["muxch*"] = _709_
           else
-            local _ = case_718_
+            local _ = case_708_
             error("Protocol Mux doesn't define method muxch*")
           end
         end
         do
-          local case_721_ = Mult["tap*"]
-          if (nil ~= case_721_) then
-            local f_3_auto = case_721_
-            local function _722_(_, ch0, close_3f)
+          local case_711_ = Mult["tap*"]
+          if (nil ~= case_711_) then
+            local f_3_auto = case_711_
+            local function _712_(_, ch0, close_3f)
               atom["cs"][ch0] = close_3f
               return nil
             end
-            _717_["tap*"] = _722_
+            _707_["tap*"] = _712_
           else
-            local _ = case_721_
+            local _ = case_711_
             error("Protocol Mult doesn't define method tap*")
           end
         end
         do
-          local case_724_ = Mult["untap*"]
-          if (nil ~= case_724_) then
-            local f_3_auto = case_724_
-            local function _725_(_, ch0)
+          local case_714_ = Mult["untap*"]
+          if (nil ~= case_714_) then
+            local f_3_auto = case_714_
+            local function _715_(_, ch0)
               atom["cs"][ch0] = nil
               return nil
             end
-            _717_["untap*"] = _725_
+            _707_["untap*"] = _715_
           else
-            local _ = case_724_
+            local _ = case_714_
             error("Protocol Mult doesn't define method untap*")
           end
         end
-        local case_727_ = Mult["untap-all*"]
-        if (nil ~= case_727_) then
-          local f_3_auto = case_727_
-          local function _728_(_)
+        local case_717_ = Mult["untap-all*"]
+        if (nil ~= case_717_) then
+          local f_3_auto = case_717_
+          local function _718_(_)
             atom["cs"] = {}
             return nil
           end
-          _717_["untap-all*"] = _728_
+          _707_["untap-all*"] = _718_
         else
-          local _ = case_727_
+          local _ = case_717_
           error("Protocol Mult doesn't define method untap-all*")
         end
       end
-      local function _730_(_241)
+      local function _720_(_241)
         return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Mux, Mult" .. ">")
       end
-      m = setmetatable({}, {__fennelview = _730_, __index = _717_, __name = "reify"})
+      m = setmetatable({}, {__fennelview = _720_, __index = _707_, __name = "reify"})
     end
     local dchan = chan(1)
     local done
-    local function _731_(_)
+    local function _721_(_)
       dctr = (dctr - 1)
       if (0 == dctr) then
         return put_21(dchan, true)
@@ -9932,11 +9755,11 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         return nil
       end
     end
-    done = _731_
+    done = _721_
     do
-      local _let_733_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_733_["go*"]
-      local function _734_()
+      local _let_723_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_723_["go*"]
+      local function _724_()
         local function recur()
           local val = _3c_21(ch)
           if (nil == val) then
@@ -9978,7 +9801,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_734_)
+      go_3_auto(_724_)
     end
     return m
   end
@@ -10029,24 +9852,24 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
   local function unmix_all_2a(_)
     return _["unmix-all*"](_)
   end
-  local _local_745_ = {["admix*"] = admix_2a, ["solo-mode*"] = solo_mode_2a, ["toggle*"] = toggle_2a, ["unmix*"] = unmix_2a, ["unmix-all*"] = unmix_all_2a}
-  local admix_2a0 = _local_745_["admix*"]
-  local solo_mode_2a0 = _local_745_["solo-mode*"]
-  local toggle_2a0 = _local_745_["toggle*"]
-  local unmix_2a0 = _local_745_["unmix*"]
-  local unmix_all_2a0 = _local_745_["unmix-all*"]
-  local Mix = _local_745_
+  local _local_735_ = {["admix*"] = admix_2a, ["solo-mode*"] = solo_mode_2a, ["toggle*"] = toggle_2a, ["unmix*"] = unmix_2a, ["unmix-all*"] = unmix_all_2a}
+  local admix_2a0 = _local_735_["admix*"]
+  local solo_mode_2a0 = _local_735_["solo-mode*"]
+  local toggle_2a0 = _local_735_["toggle*"]
+  local unmix_2a0 = _local_735_["unmix*"]
+  local unmix_all_2a0 = _local_735_["unmix-all*"]
+  local Mix = _local_735_
   local function mix(out)
     local atom = {cs = {}, ["solo-mode"] = "mute"}
     local solo_modes = {mute = true, pause = true}
     local change = chan(sliding_buffer(1))
     local changed
-    local function _746_()
+    local function _736_()
       return put_21(change, true)
     end
-    changed = _746_
+    changed = _736_
     local pick
-    local function _747_(attr, chs)
+    local function _737_(attr, chs)
       local tbl_21_ = {}
       for c, v in pairs(chs) do
         local k_22_, v_23_
@@ -10062,14 +9885,14 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       end
       return tbl_21_
     end
-    pick = _747_
+    pick = _737_
     local calc_state
-    local function _750_()
+    local function _740_()
       local chs = atom.cs
       local mode = atom["solo-mode"]
       local solos = pick("solo", chs)
       local pauses = pick("pause", chs)
-      local _751_
+      local _741_
       do
         local tmp_9_
         if ((mode == "pause") and next(solos)) then
@@ -10103,90 +9926,90 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           tmp_9_ = tbl_26_
         end
         t_2finsert(tmp_9_, change)
-        _751_ = tmp_9_
+        _741_ = tmp_9_
       end
-      return {solos = solos, mutes = pick("mute", chs), reads = _751_}
+      return {solos = solos, mutes = pick("mute", chs), reads = _741_}
     end
-    calc_state = _750_
+    calc_state = _740_
     local m
     do
-      local _756_ = {}
+      local _746_ = {}
       do
         do
-          local case_757_ = Mux["muxch*"]
-          if (nil ~= case_757_) then
-            local f_3_auto = case_757_
-            local function _758_(_)
+          local case_747_ = Mux["muxch*"]
+          if (nil ~= case_747_) then
+            local f_3_auto = case_747_
+            local function _748_(_)
               return out
             end
-            _756_["muxch*"] = _758_
+            _746_["muxch*"] = _748_
           else
-            local _ = case_757_
+            local _ = case_747_
             error("Protocol Mux doesn't define method muxch*")
           end
         end
         do
-          local case_760_ = Mix["admix*"]
-          if (nil ~= case_760_) then
-            local f_3_auto = case_760_
-            local function _761_(_, ch)
+          local case_750_ = Mix["admix*"]
+          if (nil ~= case_750_) then
+            local f_3_auto = case_750_
+            local function _751_(_, ch)
               atom.cs[ch] = {}
               return changed()
             end
-            _756_["admix*"] = _761_
+            _746_["admix*"] = _751_
           else
-            local _ = case_760_
+            local _ = case_750_
             error("Protocol Mix doesn't define method admix*")
           end
         end
         do
-          local case_763_ = Mix["unmix*"]
-          if (nil ~= case_763_) then
-            local f_3_auto = case_763_
-            local function _764_(_, ch)
+          local case_753_ = Mix["unmix*"]
+          if (nil ~= case_753_) then
+            local f_3_auto = case_753_
+            local function _754_(_, ch)
               atom.cs[ch] = nil
               return changed()
             end
-            _756_["unmix*"] = _764_
+            _746_["unmix*"] = _754_
           else
-            local _ = case_763_
+            local _ = case_753_
             error("Protocol Mix doesn't define method unmix*")
           end
         end
         do
-          local case_766_ = Mix["unmix-all*"]
-          if (nil ~= case_766_) then
-            local f_3_auto = case_766_
-            local function _767_(_)
+          local case_756_ = Mix["unmix-all*"]
+          if (nil ~= case_756_) then
+            local f_3_auto = case_756_
+            local function _757_(_)
               atom.cs = {}
               return changed()
             end
-            _756_["unmix-all*"] = _767_
+            _746_["unmix-all*"] = _757_
           else
-            local _ = case_766_
+            local _ = case_756_
             error("Protocol Mix doesn't define method unmix-all*")
           end
         end
         do
-          local case_769_ = Mix["toggle*"]
-          if (nil ~= case_769_) then
-            local f_3_auto = case_769_
-            local function _770_(_, state_map)
+          local case_759_ = Mix["toggle*"]
+          if (nil ~= case_759_) then
+            local f_3_auto = case_759_
+            local function _760_(_, state_map)
               atom.cs = merge_with(merge_2a, atom.cs, state_map)
               return changed()
             end
-            _756_["toggle*"] = _770_
+            _746_["toggle*"] = _760_
           else
-            local _ = case_769_
+            local _ = case_759_
             error("Protocol Mix doesn't define method toggle*")
           end
         end
-        local case_772_ = Mix["solo-mode*"]
-        if (nil ~= case_772_) then
-          local f_3_auto = case_772_
-          local function _773_(_, mode)
+        local case_762_ = Mix["solo-mode*"]
+        if (nil ~= case_762_) then
+          local f_3_auto = case_762_
+          local function _763_(_, mode)
             if not solo_modes[mode] then
-              local _774_
+              local _764_
               do
                 local tbl_26_ = {}
                 local i_27_ = 0
@@ -10198,43 +10021,43 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
                   else
                   end
                 end
-                _774_ = tbl_26_
+                _764_ = tbl_26_
               end
-              assert(false, ("mode must be one of: " .. t_2fconcat(_774_, ", ")))
+              assert(false, ("mode must be one of: " .. t_2fconcat(_764_, ", ")))
             else
             end
             atom["solo-mode"] = mode
             return changed()
           end
-          _756_["solo-mode*"] = _773_
+          _746_["solo-mode*"] = _763_
         else
-          local _ = case_772_
+          local _ = case_762_
           error("Protocol Mix doesn't define method solo-mode*")
         end
       end
-      local function _778_(_241)
+      local function _768_(_241)
         return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Mux, Mix" .. ">")
       end
-      m = setmetatable({}, {__fennelview = _778_, __index = _756_, __name = "reify"})
+      m = setmetatable({}, {__fennelview = _768_, __index = _746_, __name = "reify"})
     end
     do
-      local _let_780_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_780_["go*"]
-      local function _781_()
-        local _2_779_ = calc_state()
-        local solos = _2_779_.solos
-        local mutes = _2_779_.mutes
-        local reads = _2_779_.reads
-        local state = _2_779_
-        local function recur(_782_)
-          local solos0 = _782_.solos
-          local mutes0 = _782_.mutes
-          local reads0 = _782_.reads
-          local state0 = _782_
-          local _let_783_ = alts_21(reads0)
-          local v = _let_783_[1]
-          local c = _let_783_[2]
-          local res = _let_783_
+      local _let_770_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_770_["go*"]
+      local function _771_()
+        local _2_769_ = calc_state()
+        local solos = _2_769_.solos
+        local mutes = _2_769_.mutes
+        local reads = _2_769_.reads
+        local state = _2_769_
+        local function recur(_772_)
+          local solos0 = _772_.solos
+          local mutes0 = _772_.mutes
+          local reads0 = _772_.reads
+          local state0 = _772_
+          local _let_773_ = alts_21(reads0)
+          local v = _let_773_[1]
+          local c = _let_773_[2]
+          local res = _let_773_
           if ((nil == v) or (c == change)) then
             if (nil == v) then
               atom.cs[c] = nil
@@ -10253,9 +10076,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             end
           end
         end
-        return recur(_2_779_)
+        return recur(_2_769_)
       end
-      go_3_auto(_781_)
+      go_3_auto(_771_)
     end
     return m
   end
@@ -10307,29 +10130,29 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     end
     return _["unsub-all*"](_, v)
   end
-  local _local_794_ = {["sub*"] = sub_2a, ["unsub*"] = unsub_2a, ["unsub-all*"] = unsub_all_2a}
-  local sub_2a0 = _local_794_["sub*"]
-  local unsub_2a0 = _local_794_["unsub*"]
-  local unsub_all_2a0 = _local_794_["unsub-all*"]
-  local Pub = _local_794_
+  local _local_784_ = {["sub*"] = sub_2a, ["unsub*"] = unsub_2a, ["unsub-all*"] = unsub_all_2a}
+  local sub_2a0 = _local_784_["sub*"]
+  local unsub_2a0 = _local_784_["unsub*"]
+  local unsub_all_2a0 = _local_784_["unsub-all*"]
+  local Pub = _local_784_
   local function pub(ch, topic_fn, buf_fn)
     local buf_fn0
-    local or_795_ = buf_fn
-    if not or_795_ then
-      local function _796_()
+    local or_785_ = buf_fn
+    if not or_785_ then
+      local function _786_()
         return nil
       end
-      or_795_ = _796_
+      or_785_ = _786_
     end
-    buf_fn0 = or_795_
+    buf_fn0 = or_785_
     local atom = {mults = {}}
     local ensure_mult
-    local function _797_(topic)
-      local case_798_ = atom.mults[topic]
-      if (nil ~= case_798_) then
-        local m = case_798_
+    local function _787_(topic)
+      local case_788_ = atom.mults[topic]
+      if (nil ~= case_788_) then
+        local m = case_788_
         return m
-      elseif (case_798_ == nil) then
+      elseif (case_788_ == nil) then
         local mults = atom.mults
         local m = mult(chan(buf_fn0(topic)))
         do
@@ -10340,61 +10163,61 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         return nil
       end
     end
-    ensure_mult = _797_
+    ensure_mult = _787_
     local p
     do
-      local _800_ = {}
+      local _790_ = {}
       do
         do
-          local case_801_ = Mux["muxch*"]
-          if (nil ~= case_801_) then
-            local f_3_auto = case_801_
-            local function _802_(_)
+          local case_791_ = Mux["muxch*"]
+          if (nil ~= case_791_) then
+            local f_3_auto = case_791_
+            local function _792_(_)
               return ch
             end
-            _800_["muxch*"] = _802_
+            _790_["muxch*"] = _792_
           else
-            local _ = case_801_
+            local _ = case_791_
             error("Protocol Mux doesn't define method muxch*")
           end
         end
         do
-          local case_804_ = Pub["sub*"]
-          if (nil ~= case_804_) then
-            local f_3_auto = case_804_
-            local function _805_(_, topic, ch0, close_3f)
+          local case_794_ = Pub["sub*"]
+          if (nil ~= case_794_) then
+            local f_3_auto = case_794_
+            local function _795_(_, topic, ch0, close_3f)
               local m = ensure_mult(topic)
               return tap_2a0(m, ch0, close_3f)
             end
-            _800_["sub*"] = _805_
+            _790_["sub*"] = _795_
           else
-            local _ = case_804_
+            local _ = case_794_
             error("Protocol Pub doesn't define method sub*")
           end
         end
         do
-          local case_807_ = Pub["unsub*"]
-          if (nil ~= case_807_) then
-            local f_3_auto = case_807_
-            local function _808_(_, topic, ch0)
-              local case_809_ = atom.mults[topic]
-              if (nil ~= case_809_) then
-                local m = case_809_
+          local case_797_ = Pub["unsub*"]
+          if (nil ~= case_797_) then
+            local f_3_auto = case_797_
+            local function _798_(_, topic, ch0)
+              local case_799_ = atom.mults[topic]
+              if (nil ~= case_799_) then
+                local m = case_799_
                 return untap_2a0(m, ch0)
               else
                 return nil
               end
             end
-            _800_["unsub*"] = _808_
+            _790_["unsub*"] = _798_
           else
-            local _ = case_807_
+            local _ = case_797_
             error("Protocol Pub doesn't define method unsub*")
           end
         end
-        local case_812_ = Pub["unsub-all*"]
-        if (nil ~= case_812_) then
-          local f_3_auto = case_812_
-          local function _813_(_, topic)
+        local case_802_ = Pub["unsub-all*"]
+        if (nil ~= case_802_) then
+          local f_3_auto = case_802_
+          local function _803_(_, topic)
             if topic then
               atom["mults"][topic] = nil
               return nil
@@ -10403,21 +10226,21 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
               return nil
             end
           end
-          _800_["unsub-all*"] = _813_
+          _790_["unsub-all*"] = _803_
         else
-          local _ = case_812_
+          local _ = case_802_
           error("Protocol Pub doesn't define method unsub-all*")
         end
       end
-      local function _816_(_241)
+      local function _806_(_241)
         return ("#<" .. tostring(_241):gsub("table:", "reify:") .. ": " .. "Mux, Pub" .. ">")
       end
-      p = setmetatable({}, {__fennelview = _816_, __index = _800_, __name = "reify"})
+      p = setmetatable({}, {__fennelview = _806_, __index = _790_, __name = "reify"})
     end
     do
-      local _let_817_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_817_["go*"]
-      local function _818_()
+      local _let_807_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_807_["go*"]
+      local function _808_()
         local function recur()
           local val = _3c_21(ch)
           if (nil == val) then
@@ -10428,9 +10251,9 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
           else
             local topic = topic_fn(val)
             do
-              local case_819_ = atom.mults[topic]
-              if (nil ~= case_819_) then
-                local m = case_819_
+              local case_809_ = atom.mults[topic]
+              if (nil ~= case_809_) then
+                local m = case_809_
                 if not _3e_21(muxch_2a0(m), val) then
                   atom["mults"][topic] = nil
                 else
@@ -10443,7 +10266,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_818_)
+      go_3_auto(_808_)
     end
     return p
   end
@@ -10474,7 +10297,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
       local i_27_ = 0
       for i = 1, cnt do
         local val_28_
-        local function _824_(ret)
+        local function _814_(ret)
           rets[i] = ret
           dctr = (dctr - 1)
           if (0 == dctr) then
@@ -10483,7 +10306,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             return nil
           end
         end
-        val_28_ = _824_
+        val_28_ = _814_
         if (nil ~= val_28_) then
           i_27_ = (i_27_ + 1)
           tbl_26_[i_27_] = val_28_
@@ -10495,29 +10318,29 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
     if (0 == cnt) then
       close_21(out)
     else
-      local _let_827_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_827_["go*"]
-      local function _828_()
+      local _let_817_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_817_["go*"]
+      local function _818_()
         local function recur()
           dctr = cnt
           for i = 1, cnt do
-            local case_829_ = pcall(take_21, chs[i], done[i])
-            if (case_829_ == false) then
+            local case_819_ = pcall(take_21, chs[i], done[i])
+            if (case_819_ == false) then
               dctr = (dctr - 1)
             else
             end
           end
           local rets0 = _3c_21(dchan)
-          local _831_
+          local _821_
           do
             local res = false
             for i = 1, rets0.n do
               if res then break end
               res = (nil == rets0[i])
             end
-            _831_ = res
+            _821_ = res
           end
-          if _831_ then
+          if _821_ then
             return close_21(out)
           else
             _3e_21(out, f(t_2funpack(rets0)))
@@ -10526,25 +10349,25 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
         end
         return recur()
       end
-      go_3_auto(_828_)
+      go_3_auto(_818_)
     end
     return out
   end
   local function merge(chs, buf_or_n)
     local out = chan(buf_or_n)
     do
-      local _let_835_ = require("io.gitlab.andreyorst.async")
-      local go_3_auto = _let_835_["go*"]
-      local function _836_()
-        local _2_834_ = chs
-        local cs = _2_834_
+      local _let_825_ = require("io.gitlab.andreyorst.async")
+      local go_3_auto = _let_825_["go*"]
+      local function _826_()
+        local _2_824_ = chs
+        local cs = _2_824_
         local function recur(cs0)
           if (#cs0 > 0) then
-            local _let_837_ = alts_21(cs0)
-            local v = _let_837_[1]
-            local c = _let_837_[2]
+            local _let_827_ = alts_21(cs0)
+            local v = _let_827_[1]
+            local c = _let_827_[2]
             if (nil == v) then
-              local function _838_()
+              local function _828_()
                 local tbl_26_ = {}
                 local i_27_ = 0
                 for _, c_2a in ipairs(cs0) do
@@ -10562,7 +10385,7 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
                 end
                 return tbl_26_
               end
-              return recur(_838_())
+              return recur(_828_())
             else
               _3e_21(out, v)
               return recur(cs0)
@@ -10571,40 +10394,40 @@ package.preload["io.gitlab.andreyorst.async"] = package.preload["io.gitlab.andre
             return close_21(out)
           end
         end
-        return recur(_2_834_)
+        return recur(_2_824_)
       end
-      go_3_auto(_836_)
+      go_3_auto(_826_)
     end
     return out
   end
   local function into(t, ch)
-    local function _843_(_241, _242)
+    local function _833_(_241, _242)
       _241[(1 + #_241)] = _242
       return _241
     end
-    return reduce(_843_, t, ch)
+    return reduce(_833_, t, ch)
   end
   local function take(n, ch, buf_or_n)
     local out = chan(buf_or_n)
     do
-      local _let_844_ = require("io.gitlab.andreyorst.async")
-      local go_1_auto = _let_844_["go*"]
-      local function _845_()
+      local _let_834_ = require("io.gitlab.andreyorst.async")
+      local go_1_auto = _let_834_["go*"]
+      local function _835_()
         local done = false
         for i = 1, n do
           if done then break end
-          local case_846_ = _3c_21(ch)
-          if (nil ~= case_846_) then
-            local v = case_846_
+          local case_836_ = _3c_21(ch)
+          if (nil ~= case_836_) then
+            local v = case_836_
             _3e_21(out, v)
-          elseif (case_846_ == nil) then
+          elseif (case_836_ == nil) then
             done = true
           else
           end
         end
         return close_21(out)
       end
-      go_1_auto(_845_)
+      go_1_auto(_835_)
     end
     return out
   end
@@ -10613,62 +10436,72 @@ end
 spoons = require("spoons")
 local active_space_indicator
 package.preload["active-space-indicator"] = package.preload["active-space-indicator"] or function(...)
-  local function get_spaces_str()
-    local title = {}
+  local menubar = nil
+  local function get_active_spaces_str()
+    local parts = {}
     local spaces_layout = hs.spaces.allSpaces()
     local active_spaces = hs.spaces.activeSpaces()
     local num_spaces = 0
     for _, screen in ipairs(hs.screen.allScreens()) do
-      table.insert(title, (screen:name() .. ": "))
       local screen_uuid = screen:getUUID()
       local active_space = active_spaces[screen_uuid]
-      for i, space in ipairs(spaces_layout[screen_uuid]) do
-        local space_title = tostring((i + num_spaces))
+      local screen_spaces = spaces_layout[screen_uuid]
+      for i, space in ipairs(screen_spaces) do
         if (active_space and (active_space == space)) then
-          table.insert(title, ("[" .. space_title .. "]"))
+          table.insert(parts, tostring((i + num_spaces)))
         else
-          table.insert(title, (" " .. space_title .. " "))
         end
       end
-      num_spaces = (num_spaces + #spaces_layout[screen_uuid])
-      table.insert(title, "  ")
+      num_spaces = (num_spaces + #screen_spaces)
     end
-    table.remove(title)
-    return table.concat(title)
+    return table.concat(parts, "|")
+  end
+  local function update_menubar()
+    if menubar then
+      return menubar:setTitle(get_active_spaces_str())
+    else
+      return nil
+    end
   end
   local function handle_space_switch(...)
     local rest = {...}
-    return hs.alert(get_spaces_str())
+    return update_menubar()
+  end
+  menubar = hs.menubar.new(true, "cosmicHammerSpaceIndicator")
+  if menubar then
+    menubar:setTitle(get_active_spaces_str())
+  else
   end
   local space_watcher = hs.spaces.watcher.new(handle_space_switch)
   space_watcher:start()
   local screen_watcher = hs.screen.watcher.new(handle_space_switch)
   screen_watcher:start()
   local expose = hs.expose.new()
-  local function _1558_()
+  local function _1550_()
     return expose:toggleShow()
   end
-  hs.hotkey.bind("ctrl-cmd", "e", "Expose", _1558_)
+  hs.hotkey.bind("ctrl-cmd", "e", "Expose", _1550_)
   return {}
 end
 active_space_indicator = require("active-space-indicator")
 local file_watchers
 package.preload["file-watchers"] = package.preload["file-watchers"] or function(...)
-  local _local_1559_ = require("io.gitlab.andreyorst.cljlib.core")
-  local mapv = _local_1559_.mapv
-  local assoc = _local_1559_.assoc
-  local _local_1581_ = require("events")
-  local dispatch_event = _local_1581_["dispatch-event"]
-  local tag_events = _local_1581_["tag-events"]
-  local _local_1588_ = require("behaviors")
-  local register_behavior = _local_1588_["register-behavior"]
+  local _local_1551_ = require("io.gitlab.andreyorst.cljlib.core")
+  local mapv = _local_1551_.mapv
+  local assoc = _local_1551_.assoc
+  local _local_1573_ = require("events")
+  local dispatch_event = _local_1573_["dispatch-event"]
+  local tag_events = _local_1573_["tag-events"]
+  local _local_1580_ = require("behaviors")
+  local register_behavior = _local_1580_["register-behavior"]
+  local notify = require("notify")
   tag_events("file-watchers.events/file-change", "file-watchers", {"file-watchers.tags/file-change"})
   local function handle_reload(files, attrs)
     local evs
-    local function _1589_(_241, _242)
+    local function _1591_(_241, _242)
       return assoc(_241, "file-path", _242)
     end
-    evs = mapv(_1589_, attrs, files)
+    evs = mapv(_1591_, attrs, files)
     for _, ev in ipairs(evs) do
       dispatch_event("file-watchers.events/file-change", "file-watchers", ev)
     end
@@ -10678,41 +10511,41 @@ package.preload["file-watchers"] = package.preload["file-watchers"] or function(
   __fnl_global__file_2dwatchers_2fpath_2dwatcher = my_watcher:start()
   local reloading_3f = false
   local reload = hs.timer.delayed.new(0.5, hs.reload)
-  local function _1590_(file_change_event)
+  local function _1592_(file_change_event)
     local path
     do
-      local t_1591_ = file_change_event
-      if (nil ~= t_1591_) then
-        t_1591_ = t_1591_["event-data"]
+      local t_1593_ = file_change_event
+      if (nil ~= t_1593_) then
+        t_1593_ = t_1593_["event-data"]
       else
       end
-      if (nil ~= t_1591_) then
-        t_1591_ = t_1591_["file-path"]
+      if (nil ~= t_1593_) then
+        t_1593_ = t_1593_["file-path"]
       else
       end
-      path = t_1591_
+      path = t_1593_
     end
     if (not reloading_3f and (nil ~= path) and (".hammerspoon/init.lua" == path:sub(-21))) then
-      hs.alert("reloading")
+      notify.warn("Reloading...")
       return reload:start()
     else
       return nil
     end
   end
-  register_behavior("file-watchers.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"file-watchers.tags/file-change"}, _1590_)
-  local function _1595_(file_change_event)
+  register_behavior("file-watchers.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"file-watchers.tags/file-change"}, _1592_)
+  local function _1597_(file_change_event)
     local path
     do
-      local t_1596_ = file_change_event
-      if (nil ~= t_1596_) then
-        t_1596_ = t_1596_["event-data"]
+      local t_1598_ = file_change_event
+      if (nil ~= t_1598_) then
+        t_1598_ = t_1598_["event-data"]
       else
       end
-      if (nil ~= t_1596_) then
-        t_1596_ = t_1596_["file-path"]
+      if (nil ~= t_1598_) then
+        t_1598_ = t_1598_["file-path"]
       else
       end
-      path = t_1596_
+      path = t_1598_
     end
     if ((nil ~= path) and (".fnl" == path:sub(-4))) then
       return print(hs.execute("./compile.sh", true))
@@ -10720,7 +10553,7 @@ package.preload["file-watchers"] = package.preload["file-watchers"] or function(
       return nil
     end
   end
-  register_behavior("file-watchers.behaviors/hammerspoon-compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"file-watchers.tags/file-change"}, _1595_)
+  register_behavior("file-watchers.behaviors/hammerspoon-compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"file-watchers.tags/file-change"}, _1597_)
   return {}
 end
 package.preload["events"] = package.preload["events"] or function(...)
@@ -10732,42 +10565,42 @@ package.preload["events"] = package.preload["events"] or function(...)
   local get_event_tags
   do
     local pairs_106_auto
-    local function _1560_(t_107_auto)
-      local case_1561_ = getmetatable(t_107_auto)
-      if ((_G.type(case_1561_) == "table") and (nil ~= case_1561_.__pairs)) then
-        local p_108_auto = case_1561_.__pairs
+    local function _1552_(t_107_auto)
+      local case_1553_ = getmetatable(t_107_auto)
+      if ((_G.type(case_1553_) == "table") and (nil ~= case_1553_.__pairs)) then
+        local p_108_auto = case_1553_.__pairs
         return p_108_auto(t_107_auto)
       else
-        local _ = case_1561_
+        local _ = case_1553_
         return pairs(t_107_auto)
       end
     end
-    pairs_106_auto = _1560_
-    local _let_1563_ = require("io.gitlab.andreyorst.cljlib.core")
-    local eq_109_auto = _let_1563_.eq
-    local function _1564_(t_107_auto, ...)
+    pairs_106_auto = _1552_
+    local _let_1555_ = require("io.gitlab.andreyorst.cljlib.core")
+    local eq_109_auto = _let_1555_.eq
+    local function _1556_(t_107_auto, ...)
       local dispatch_value_114_auto
-      local function _1565_(ev)
+      local function _1557_(ev)
         return {ev["event-name"], ev.origin}
       end
-      dispatch_value_114_auto = _1565_(...)
+      dispatch_value_114_auto = _1557_(...)
       local view_115_auto
       do
-        local case_1566_, case_1567_ = pcall(require, "fennel")
-        if ((case_1566_ == true) and (nil ~= case_1567_)) then
-          local fennel_116_auto = case_1567_
-          local function _1568_(_241)
+        local case_1558_, case_1559_ = pcall(require, "fennel")
+        if ((case_1558_ == true) and (nil ~= case_1559_)) then
+          local fennel_116_auto = case_1559_
+          local function _1560_(_241)
             return fennel_116_auto.view(_241, {["one-line"] = true})
           end
-          view_115_auto = _1568_
+          view_115_auto = _1560_
         else
-          local _ = case_1566_
+          local _ = case_1558_
           view_115_auto = tostring
         end
       end
       return (t_107_auto[dispatch_value_114_auto] or t_107_auto[(({}).default or "default")] or error(("No method in multimethod '" .. "get-event-tags" .. "' for dispatch value: " .. view_115_auto(dispatch_value_114_auto)), 2))(...)
     end
-    local function _1570_(t_107_auto, key_110_auto)
+    local function _1562_(t_107_auto, key_110_auto)
       local res_111_auto = nil
       for k_112_auto, v_113_auto in pairs_106_auto(t_107_auto) do
         if res_111_auto then break end
@@ -10779,58 +10612,58 @@ package.preload["events"] = package.preload["events"] or function(...)
       end
       return res_111_auto
     end
-    get_event_tags = setmetatable({}, {__call = _1564_, __fennelview = tostring, __index = _1570_, __name = ("multifn " .. "get-event-tags"), ["cljlib/type"] = "multifn"})
+    get_event_tags = setmetatable({}, {__call = _1556_, __fennelview = tostring, __index = _1562_, __name = ("multifn " .. "get-event-tags"), ["cljlib/type"] = "multifn"})
   end
   do
     local dispatch_118_auto = "default"
     local multifn_119_auto = get_event_tags
-    local and_1573_ = not multifn_119_auto[dispatch_118_auto]
-    if and_1573_ then
-      local function fn_1572_(...)
+    local and_1565_ = not multifn_119_auto[dispatch_118_auto]
+    if and_1565_ then
+      local function fn_1564_(...)
         local _ = ...
         do
           local cnt_54_auto = select("#", ...)
           if (1 ~= cnt_54_auto) then
-            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1572_"))
+            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1564_"))
           else
           end
         end
         return {"event/unknown"}
       end
-      multifn_119_auto[dispatch_118_auto] = fn_1572_
-      and_1573_ = multifn_119_auto
+      multifn_119_auto[dispatch_118_auto] = fn_1564_
+      and_1565_ = multifn_119_auto
     end
-    do local _ = and_1573_ end
+    do local _ = and_1565_ end
   end
   local function tag_events(ev_name, orig, tags)
     local dispatch_118_auto = {ev_name, orig}
     local multifn_119_auto = get_event_tags
-    local and_1576_ = not multifn_119_auto[dispatch_118_auto]
-    if and_1576_ then
-      local function fn_1575_(...)
+    local and_1568_ = not multifn_119_auto[dispatch_118_auto]
+    if and_1568_ then
+      local function fn_1567_(...)
         local _ = ...
         do
           local cnt_54_auto = select("#", ...)
           if (1 ~= cnt_54_auto) then
-            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1575_"))
+            error(("Wrong number of args (%s) passed to %s"):format(cnt_54_auto, "fn_1567_"))
           else
           end
         end
         return tags
       end
-      multifn_119_auto[dispatch_118_auto] = fn_1575_
-      and_1576_ = multifn_119_auto
+      multifn_119_auto[dispatch_118_auto] = fn_1567_
+      and_1568_ = multifn_119_auto
     end
-    return and_1576_
+    return and_1568_
   end
   local function add_event_handler(handler)
     local idx = (1 + #event_handlers)
     table.insert(event_handlers, handler)
-    local function _1578_()
+    local function _1570_()
       event_handlers[idx] = nil
       return nil
     end
-    return _1578_
+    return _1570_
   end
   local function process_events()
     processing_3f = true
@@ -10856,20 +10689,20 @@ package.preload["events"] = package.preload["events"] or function(...)
       return nil
     end
   end
-  local function _1580_(event)
+  local function _1572_(event)
     return print("got event", fnl.view(event))
   end
-  add_event_handler(_1580_)
+  add_event_handler(_1572_)
   return {["tag-events"] = tag_events, ["add-event-handler"] = add_event_handler, ["dispatch-event"] = dispatch_event}
 end
 package.preload["behaviors"] = package.preload["behaviors"] or function(...)
-  local _local_1582_ = require("io.gitlab.andreyorst.cljlib.core")
-  local mapcat = _local_1582_.mapcat
-  local into = _local_1582_.into
-  local mapv = _local_1582_.mapv
-  local hash_set = _local_1582_["hash-set"]
-  local _local_1583_ = require("events")
-  local add_event_handler = _local_1583_["add-event-handler"]
+  local _local_1574_ = require("io.gitlab.andreyorst.cljlib.core")
+  local mapcat = _local_1574_.mapcat
+  local into = _local_1574_.into
+  local mapv = _local_1574_.mapv
+  local hash_set = _local_1574_["hash-set"]
+  local _local_1575_ = require("events")
+  local add_event_handler = _local_1575_["add-event-handler"]
   --[[ example-behavior {:description "Some example behavior" :enabled? true :fn (fn [event] (print (fnl.view event))) :name "example-behavior" :respond-to ["example-tag"]} ]]
   local behaviors_register = {}
   local tag_to_behavior_map = {}
@@ -10886,15 +10719,15 @@ package.preload["behaviors"] = package.preload["behaviors"] or function(...)
     return nil
   end
   local function get_behaviors_for_tags(tags)
-    local function _1585_(_241)
+    local function _1577_(_241)
       return behaviors_register[_241]
     end
-    local function _1586_(_241)
+    local function _1578_(_241)
       return tag_to_behavior_map[_241]
     end
-    return mapv(_1585_, into(hash_set(), mapcat(_1586_, tags)))
+    return mapv(_1577_, into(hash_set(), mapcat(_1578_, tags)))
   end
-  local function _1587_(event)
+  local function _1579_(event)
     local bs = get_behaviors_for_tags(event["event-tags"])
     for _, behavior in pairs(bs) do
       local f = behavior.fn
@@ -10902,11 +10735,185 @@ package.preload["behaviors"] = package.preload["behaviors"] or function(...)
     end
     return nil
   end
-  add_event_handler(_1587_)
+  add_event_handler(_1579_)
   return {["register-behavior"] = register_behavior}
 end
+package.preload["notify"] = package.preload["notify"] or function(...)
+  local notification_duration = 30
+  local margin = 64
+  local stack_gap = 8
+  local icons_dir = (os.getenv("HOME") .. "/.hammerspoon/icons")
+  local icon_paths = {info = (icons_dir .. "/info.png"), warn = (icons_dir .. "/warn.png"), error = (icons_dir .. "/error.png")}
+  local header_colors = {info = {red = 0.2, green = 0.4, blue = 0.6, alpha = 1}, warn = {red = 0.7, green = 0.5, blue = 0.1, alpha = 1}, error = {red = 0.7, green = 0.2, blue = 0.2, alpha = 1}}
+  local active_notifications = {}
+  local function move_notification_up(notif, offset)
+    for _, drawing in ipairs(notif.drawings) do
+      local current_frame = drawing:frame()
+      local new_y = (current_frame.y - offset)
+      drawing:setFrame({x = current_frame.x, y = new_y, w = current_frame.w, h = current_frame.h})
+    end
+    return nil
+  end
+  local function push_existing_notifications_up(new_height)
+    local offset = (new_height + stack_gap)
+    for _, notif in ipairs(active_notifications) do
+      move_notification_up(notif, offset)
+    end
+    return nil
+  end
+  local function remove_notification(notif)
+    if notif.timer then
+      notif.timer:stop()
+    else
+    end
+    for _, drawing in ipairs(notif.drawings) do
+      drawing:delete()
+    end
+    local idx = nil
+    for i, n in ipairs(active_notifications) do
+      if (n == notif) then
+        idx = i
+      else
+      end
+    end
+    if idx then
+      return table.remove(active_notifications, idx)
+    else
+      return nil
+    end
+  end
+  local function show_notification(title, type, message)
+    local screen = hs.screen.mainScreen()
+    local frame = screen:frame()
+    local icon_path = icon_paths[type]
+    local icon_image = hs.image.imageFromPath(icon_path)
+    local header_color = (header_colors[type] or header_colors.info)
+    local title_font = "SF Pro Text Bold"
+    local message_font = "SF Pro Text"
+    local font_size = 14
+    local outer_padding = 8
+    local section_gap = 8
+    local inner_padding = 8
+    local icon_size = 18
+    local icon_padding = 10
+    local notif_width = 300
+    local header_height = 36
+    local message_padding = 12
+    local close_btn_size = 18
+    local close_btn_margin = 8
+    local message_size = hs.drawing.getTextDrawingSize(message, {font = message_font, size = font_size})
+    local wrapped_lines = math.ceil((message_size.w / (notif_width - (message_padding * 2) - (outer_padding * 2))))
+    local actual_message_height = (message_size.h * math.max(1, wrapped_lines))
+    local message_height = (actual_message_height + (message_padding * 2))
+    local total_height = ((outer_padding * 2) + header_height + section_gap + message_height)
+    local x = ((frame.x + frame.w) - notif_width - margin)
+    local y = ((frame.y + frame.h) - total_height - margin - 50)
+    push_existing_notifications_up(total_height)
+    local drawings = {}
+    local container_rect = hs.drawing.rectangle({x = x, y = y, w = notif_width, h = total_height})
+    local header_rect = hs.drawing.rectangle({x = (x + outer_padding), y = (y + outer_padding), w = (notif_width - (outer_padding * 2)), h = header_height})
+    local message_rect = hs.drawing.rectangle({x = (x + outer_padding), y = (y + outer_padding + header_height + section_gap), w = (notif_width - (outer_padding * 2)), h = message_height})
+    local icon_drawing
+    if icon_image then
+      icon_drawing = hs.drawing.image({x = (x + outer_padding + icon_padding), y = (y + outer_padding + ((header_height - icon_size) / 2)), w = icon_size, h = icon_size}, icon_image)
+    else
+      icon_drawing = nil
+    end
+    local text_height = 18
+    local text_x_offset
+    if icon_image then
+      text_x_offset = (outer_padding + icon_padding + icon_size + 8)
+    else
+      text_x_offset = (outer_padding + inner_padding)
+    end
+    local header_text = hs.drawing.text({x = (x + text_x_offset), y = (y + outer_padding + ((header_height - text_height) / 2)), w = (notif_width - text_x_offset - inner_padding - close_btn_size - close_btn_margin - outer_padding), h = text_height}, title)
+    local message_text = hs.drawing.text({x = (x + outer_padding + message_padding), y = (y + outer_padding + header_height + section_gap + message_padding), w = (notif_width - (outer_padding * 2) - (message_padding * 2)), h = actual_message_height}, message)
+    local close_btn_x = ((x + notif_width) - close_btn_size - close_btn_margin - outer_padding)
+    local close_btn_y = (y + outer_padding + ((header_height - close_btn_size) / 2))
+    local close_btn = hs.drawing.text({x = close_btn_x, y = close_btn_y, w = close_btn_size, h = close_btn_size}, "\195\151")
+    container_rect:setFill(true)
+    container_rect:setFillColor({white = 0.12, alpha = 0.98})
+    container_rect:setStroke(true)
+    container_rect:setStrokeWidth(1)
+    container_rect:setStrokeColor({white = 0.25, alpha = 1})
+    container_rect:setRoundedRectRadii(12, 12)
+    header_rect:setFill(true)
+    header_rect:setFillColor(header_color)
+    header_rect:setStroke(false)
+    header_rect:setRoundedRectRadii(8, 8)
+    message_rect:setFill(true)
+    message_rect:setFillColor({white = 0.06, alpha = 1})
+    message_rect:setStroke(false)
+    message_rect:setRoundedRectRadii(8, 8)
+    header_text:setTextFont(title_font)
+    header_text:setTextSize(14)
+    header_text:setTextColor({white = 1, alpha = 1})
+    message_text:setTextFont(message_font)
+    message_text:setTextSize(font_size)
+    message_text:setTextColor({white = 0.9, alpha = 1})
+    close_btn:setTextFont("SF Pro Text")
+    close_btn:setTextSize(16)
+    close_btn:setTextColor({white = 1, alpha = 0.6})
+    container_rect:show()
+    header_rect:show()
+    message_rect:show()
+    if icon_drawing then
+      icon_drawing:show()
+    else
+    end
+    header_text:show()
+    message_text:show()
+    close_btn:show()
+    table.insert(drawings, container_rect)
+    table.insert(drawings, header_rect)
+    table.insert(drawings, message_rect)
+    if icon_drawing then
+      table.insert(drawings, icon_drawing)
+    else
+    end
+    table.insert(drawings, header_text)
+    table.insert(drawings, message_text)
+    table.insert(drawings, close_btn)
+    local notif = {drawings = drawings, height = total_height, timer = nil}
+    close_btn:setBehaviorByLabels({"canvasClickable"})
+    local function _1588_()
+      return remove_notification(notif)
+    end
+    close_btn:setClickCallback(_1588_)
+    local function _1589_()
+      return remove_notification(notif)
+    end
+    notif["timer"] = hs.timer.doAfter(notification_duration, _1589_)
+    return table.insert(active_notifications, notif)
+  end
+  local function notify(title, type, message)
+    return show_notification(title, type, message)
+  end
+  local function info(message)
+    return notify("Cosmic Hammer", "info", message)
+  end
+  local function warn(message)
+    return notify("Cosmic Hammer", "warn", message)
+  end
+  local function error(message)
+    return notify("Cosmic Hammer", "error", message)
+  end
+  local function close_all()
+    for _, notif in ipairs(active_notifications) do
+      if notif.timer then
+        notif.timer:stop()
+      else
+      end
+      for _0, drawing in ipairs(notif.drawings) do
+        drawing:delete()
+      end
+    end
+    active_notifications = {}
+    return nil
+  end
+  return {info = info, warn = warn, error = error, ["close-all"] = close_all}
+end
 file_watchers = require("file-watchers")
-hs.window.animationDuration = 0.0
-hs.ipc.cliInstall()
+local notify = require("notify")
 notify.warn("Reload Succeeded")
 return {}

@@ -3,6 +3,7 @@
 
 (local {: dispatch-event : tag-events} (require :events))
 (local {: register-behavior} (require :behaviors))
+(local notify (require :notify))
 
 
 (tag-events :file-watchers.events/file-change :file-watchers
@@ -28,11 +29,11 @@
  [:file-watchers.tags/file-change]
  (fn [file-change-event]
    (let [path (?. file-change-event :event-data :file-path)]
-     (when (and (not reloading?)
-                (not= nil path)
-                (= ".hammerspoon/init.lua" (path:sub -21)))
-       (hs.alert "reloading")
-       (reload:start)))))
+      (when (and (not reloading?)
+                 (not= nil path)
+                 (= ".hammerspoon/init.lua" (path:sub -21)))
+        (notify.warn "Reloading...")
+        (reload:start)))))
 
 
 (register-behavior
