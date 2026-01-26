@@ -1,6 +1,9 @@
 ;; First thing to do: Clear console.
 (hs.console.clearConsole)
 
+;; Debug mode for event-bus logging
+(tset _G :event-bus.debug-mode? false)
+
 ;; TODO cliInstall doesn't work due to priviledges. For now I've linked manually
 (hs.ipc.cliInstall) ; ensure CLI installed
 

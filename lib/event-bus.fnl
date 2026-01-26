@@ -53,7 +53,8 @@
 
 (add-event-handler
  (fn [event]
-  (print "got event" (fnl.view event))))
+   (when (. _G :event-bus.debug-mode?)
+     (print "got event" (fnl.view event)))))
 
 
 {: tag-events
