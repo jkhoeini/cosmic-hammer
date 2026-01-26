@@ -1,5 +1,5 @@
 
-(local {: mapcat : into : mapv : hash-set} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: mapcat : into : mapv : hash-set : disj : conj} (require :io.gitlab.andreyorst.cljlib.core))
 (local {: add-event-handler} (require :lib.event-bus))
 
 
@@ -13,8 +13,7 @@
 
 (local behaviors-register {})
 
-;; {source -> {tag -> [behavior-names]}}
-;; TODO: Use hash-set instead of list for behavior names for robustness
+;; {source -> {tag -> #{behavior-names}}}
 (local source-tag-to-behavior-map {})
 
 
@@ -32,15 +31,23 @@
 ;; TODO: Use keyword hierarchies and ancestor? checking for sources and tags
 ;;       This will enable hierarchical matching and cover wildcard matching feature
 ;; TODO: Add wildcard matching support (e.g., [:* tag] or [source :*])
-;; TODO: Add unsubscribe-behavior function
 (fn subscribe-behavior [behavior-name source tag]
   "Subscribe a behavior to respond to events from a specific source with a specific tag."
   ;; TODO: Log warning if behavior-name not in behaviors-register
   (when (= nil (. source-tag-to-behavior-map source))
     (tset source-tag-to-behavior-map source {}))
   (when (= nil (. source-tag-to-behavior-map source tag))
-    (tset source-tag-to-behavior-map source tag []))
-  (table.insert (. source-tag-to-behavior-map source tag) behavior-name))
+    (tset source-tag-to-behavior-map source tag (hash-set)))
+  (tset source-tag-to-behavior-map source tag
+        (conj (. source-tag-to-behavior-map source tag) behavior-name)))
+
+
+(fn unsubscribe-behavior [behavior-name source tag]
+  "Unsubscribe a behavior from a specific source+tag pair."
+  (let [behavior-set (?. source-tag-to-behavior-map source tag)]
+    (when behavior-set
+      (tset source-tag-to-behavior-map source tag
+            (disj behavior-set behavior-name)))))
 
 
 (fn get-behaviors-for-event [event]
@@ -64,4 +71,5 @@
 
 
 {: register-behavior
- : subscribe-behavior}
+ : subscribe-behavior
+ : unsubscribe-behavior}
