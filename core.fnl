@@ -10,8 +10,11 @@
 
 (local spoons (require :spoons))
 (local active-space-indicator (require :active-space-indicator))
-(local file-watchers (require :file-watchers))
 (local notify (require :notify))
+
+;; Load events first, then behaviors
+(require :events)
+(require :behaviors)
 
 
 (notify.warn "Reload Succeeded")

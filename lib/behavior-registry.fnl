@@ -1,6 +1,6 @@
 
 (local {: mapcat : into : mapv : hash-set} (require :io.gitlab.andreyorst.cljlib.core))
-(local {: add-event-handler} (require :events))
+(local {: add-event-handler} (require :lib.event-bus))
 
 
 (comment example-behavior
