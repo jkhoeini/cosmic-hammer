@@ -10831,27 +10831,31 @@ require("events")
 package.preload["behaviors"] = package.preload["behaviors"] or function(...)
   require("behaviors.reload-hammerspoon")
   require("behaviors.compile-fennel")
+  local _local_1608_ = require("lib.behavior-registry")
+  local subscribe_behavior = _local_1608_["subscribe-behavior"]
+  subscribe_behavior("reload-hammerspoon.behaviors/reload-hammerspoon", "config-dir-file-watcher", "config-dir-file-watcher.tags/file-change")
+  subscribe_behavior("compile-fennel.behaviors/compile-fennel", "config-dir-file-watcher", "config-dir-file-watcher.tags/file-change")
   return {}
 end
 package.preload["behaviors.reload-hammerspoon"] = package.preload["behaviors.reload-hammerspoon"] or function(...)
-  local _local_1591_ = require("lib.behavior-registry")
-  local register_behavior = _local_1591_["register-behavior"]
+  local _local_1596_ = require("lib.behavior-registry")
+  local register_behavior = _local_1596_["register-behavior"]
   local notify = require("notify")
   local reloading_3f = false
   local reload = hs.timer.delayed.new(0.5, hs.reload)
-  local function _1592_(file_change_event)
+  local function _1597_(file_change_event)
     local path
     do
-      local t_1593_ = file_change_event
-      if (nil ~= t_1593_) then
-        t_1593_ = t_1593_["event-data"]
+      local t_1598_ = file_change_event
+      if (nil ~= t_1598_) then
+        t_1598_ = t_1598_["event-data"]
       else
       end
-      if (nil ~= t_1593_) then
-        t_1593_ = t_1593_["file-path"]
+      if (nil ~= t_1598_) then
+        t_1598_ = t_1598_["file-path"]
       else
       end
-      path = t_1593_
+      path = t_1598_
     end
     if (not reloading_3f and (nil ~= path) and (".hammerspoon/init.lua" == path:sub(-21))) then
       reloading_3f = true
@@ -10861,7 +10865,7 @@ package.preload["behaviors.reload-hammerspoon"] = package.preload["behaviors.rel
       return nil
     end
   end
-  register_behavior("reload-hammerspoon.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"config-dir-file-watcher.tags/file-change"}, _1592_)
+  register_behavior("reload-hammerspoon.behaviors/reload-hammerspoon", "When init.lua changes, reload hammerspoon.", {"config-dir-file-watcher.tags/file-change"}, _1597_)
   return {}
 end
 package.preload["lib.behavior-registry"] = package.preload["lib.behavior-registry"] or function(...)
@@ -10874,55 +10878,72 @@ package.preload["lib.behavior-registry"] = package.preload["lib.behavior-registr
   local add_event_handler = _local_1586_["add-event-handler"]
   --[[ example-behavior {:description "Some example behavior" :enabled? true :fn (fn [event] (print (fnl.view event))) :name "example-behavior" :respond-to ["example-tag"]} ]]
   local behaviors_register = {}
-  local tag_to_behavior_map = {}
+  local source_tag_to_behavior_map = {}
   local function register_behavior(name, desc, tags, f)
     local behavior = {name = name, description = desc, ["enabled?"] = true, ["respond-to"] = tags, fn = f}
     behaviors_register[name] = behavior
-    for _, tag in pairs(tags) do
-      if (nil == tag_to_behavior_map[tag]) then
-        tag_to_behavior_map[tag] = {}
+    return nil
+  end
+  local function subscribe_behavior(behavior_name, source, tag)
+    if (nil == source_tag_to_behavior_map[source]) then
+      source_tag_to_behavior_map[source] = {}
+    else
+    end
+    if (nil == source_tag_to_behavior_map[source][tag]) then
+      source_tag_to_behavior_map[source][tag] = {}
+    else
+    end
+    return table.insert(source_tag_to_behavior_map[source][tag], behavior_name)
+  end
+  local function get_behaviors_for_event(event)
+    local source = event.origin
+    local tags = event["event-tags"]
+    local function _1589_(name)
+      return behaviors_register[name]
+    end
+    local function _1590_(_241)
+      local t_1591_ = source_tag_to_behavior_map
+      if (nil ~= t_1591_) then
+        t_1591_ = t_1591_[source]
       else
       end
-      table.insert(tag_to_behavior_map[tag], name)
+      if (nil ~= t_1591_) then
+        t_1591_ = t_1591_[_241]
+      else
+      end
+      return t_1591_
     end
-    return nil
+    return mapv(_1589_, into(hash_set(), mapcat(_1590_, tags)))
   end
-  local function get_behaviors_for_tags(tags)
-    local function _1588_(_241)
-      return behaviors_register[_241]
-    end
-    local function _1589_(_241)
-      return tag_to_behavior_map[_241]
-    end
-    return mapv(_1588_, into(hash_set(), mapcat(_1589_, tags)))
-  end
-  local function _1590_(event)
-    local bs = get_behaviors_for_tags(event["event-tags"])
+  local function _1594_(event)
+    local bs = get_behaviors_for_event(event)
     for _, behavior in pairs(bs) do
-      local f = behavior.fn
-      f(event)
+      if behavior then
+        behavior.fn(event)
+      else
+      end
     end
     return nil
   end
-  add_event_handler(_1590_)
-  return {["register-behavior"] = register_behavior}
+  add_event_handler(_1594_)
+  return {["register-behavior"] = register_behavior, ["subscribe-behavior"] = subscribe_behavior}
 end
 package.preload["behaviors.compile-fennel"] = package.preload["behaviors.compile-fennel"] or function(...)
-  local _local_1597_ = require("lib.behavior-registry")
-  local register_behavior = _local_1597_["register-behavior"]
-  local function _1598_(file_change_event)
+  local _local_1602_ = require("lib.behavior-registry")
+  local register_behavior = _local_1602_["register-behavior"]
+  local function _1603_(file_change_event)
     local path
     do
-      local t_1599_ = file_change_event
-      if (nil ~= t_1599_) then
-        t_1599_ = t_1599_["event-data"]
+      local t_1604_ = file_change_event
+      if (nil ~= t_1604_) then
+        t_1604_ = t_1604_["event-data"]
       else
       end
-      if (nil ~= t_1599_) then
-        t_1599_ = t_1599_["file-path"]
+      if (nil ~= t_1604_) then
+        t_1604_ = t_1604_["file-path"]
       else
       end
-      path = t_1599_
+      path = t_1604_
     end
     if ((nil ~= path) and (".fnl" == path:sub(-4))) then
       return print(hs.execute("./compile.sh", true))
@@ -10930,7 +10951,7 @@ package.preload["behaviors.compile-fennel"] = package.preload["behaviors.compile
       return nil
     end
   end
-  register_behavior("compile-fennel.behaviors/compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"config-dir-file-watcher.tags/file-change"}, _1598_)
+  register_behavior("compile-fennel.behaviors/compile-fennel", "Watch fennel files in hammerspoon folder and recompile them.", {"config-dir-file-watcher.tags/file-change"}, _1603_)
   return {}
 end
 require("behaviors")
