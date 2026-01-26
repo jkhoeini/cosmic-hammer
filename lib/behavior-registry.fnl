@@ -33,7 +33,8 @@
 ;; TODO: Add wildcard matching support (e.g., [:* tag] or [source :*])
 (fn subscribe-behavior [behavior-name source tag]
   "Subscribe a behavior to respond to events from a specific source with a specific tag."
-  ;; TODO: Log warning if behavior-name not in behaviors-register
+  (when (= nil (. behaviors-register behavior-name))
+    (print (.. "[WARN] subscribe-behavior: behavior '" (tostring behavior-name) "' not found in registry")))
   (when (= nil (. source-tag-to-behavior-map source))
     (tset source-tag-to-behavior-map source {}))
   (when (= nil (. source-tag-to-behavior-map source tag))
@@ -58,8 +59,10 @@
          (mapcat #(?. source-tag-to-behavior-map source $))
          (into (hash-set))
          (mapv (fn [name]
-                 ;; TODO: Log error if behavior not found in behaviors-register
-                 (. behaviors-register name))))))
+                 (let [behavior (. behaviors-register name)]
+                   (when (= nil behavior)
+                     (print (.. "[ERROR] get-behaviors-for-event: behavior '" (tostring name) "' not found in registry")))
+                   behavior))))))
 
 
 (add-event-handler
