@@ -1,11 +1,11 @@
 
 (local {: mapv : assoc} (require :io.gitlab.andreyorst.cljlib.core))
 
-(local {: dispatch-event : tag-events} (require :lib.event-bus))
+(local {: dispatch-event : tag-event} (require :lib.event-bus))
 
 
-(tag-events :config-dir-file-watcher.events/file-change :config-dir-file-watcher
-            [:config-dir-file-watcher.tags/file-change])
+(tag-event :config-dir-file-watcher.events/file-change
+           :config-dir-file-watcher.tags/file-change)
 
 
 (fn handle-file-change [files attrs]
