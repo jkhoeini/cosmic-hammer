@@ -66,6 +66,7 @@
 
 
 (add-event-handler
+ :behavior-registry/dispatcher
  (fn [event]
    (let [bs (get-behaviors-for-event event)]
      (each [_ behavior (pairs bs)]

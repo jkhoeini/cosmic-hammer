@@ -21,12 +21,15 @@
   (tset event-tags event-name (conj (. event-tags event-name) tag)))
 
 
-(local event-handlers [])
+(local event-handlers {})
 
-(fn add-event-handler [handler]
-  (let [idx (+ 1 (length event-handlers))]
-    (table.insert event-handlers handler)
-    #(tset event-handlers idx nil)))
+(fn add-event-handler [key handler]
+  (when (not= nil (. event-handlers key))
+    (error (.. "Event handler already registered: " (tostring key))))
+  (tset event-handlers key handler))
+
+(fn remove-event-handler [key]
+  (tset event-handlers key nil))
 
 
 (var processing? false)
@@ -52,6 +55,7 @@
 
 
 (add-event-handler
+ :event-bus/debug-handler
  (fn [event]
    (when (. _G :event-bus.debug-mode?)
      (print "got event" (fnl.view event)))))
@@ -59,4 +63,5 @@
 
 {: tag-event
  : add-event-handler
+ : remove-event-handler
  : dispatch-event}
