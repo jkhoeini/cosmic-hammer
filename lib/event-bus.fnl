@@ -12,13 +12,8 @@
                 :y 20}})
 
 
-(var processing? false)
-(var events-queue [])
-(local event-handlers [])
-
 ;; {event-name -> #{tags}}
 (local event-tags {})
-
 
 (fn tag-event [event-name tag]
   (when (= nil (. event-tags event-name))
@@ -26,11 +21,16 @@
   (tset event-tags event-name (conj (. event-tags event-name) tag)))
 
 
+(local event-handlers [])
+
 (fn add-event-handler [handler]
   (let [idx (+ 1 (length event-handlers))]
     (table.insert event-handlers handler)
     #(tset event-handlers idx nil)))
 
+
+(var processing? false)
+(var events-queue [])
 
 (fn process-events []
   (set processing? true)
