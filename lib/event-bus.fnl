@@ -12,10 +12,21 @@
                 :y 20}})
 
 
+;; {event-name -> {:description string :schema {field-name -> validator-fn}}}
+(local event-registry {})
+
+(fn register-event [event-name description schema]
+  (when (not= nil (. event-registry event-name))
+    (error (.. "Event already registered: " (tostring event-name))))
+  (tset event-registry event-name {:description description :schema schema}))
+
+
 ;; {event-name -> #{tags}}
 (local event-tags {})
 
 (fn tag-event [event-name tag]
+  (when (= nil (. event-registry event-name))
+    (print (.. "[WARN] tag-event: event '" (tostring event-name) "' not registered")))
   (when (= nil (. event-tags event-name))
     (tset event-tags event-name (hash-set)))
   (tset event-tags event-name (conj (. event-tags event-name) tag)))
@@ -47,6 +58,8 @@
 
 
 (fn dispatch-event [event-name origin event-data]
+  (when (= nil (. event-registry event-name))
+    (print (.. "[WARN] dispatch-event: event '" (tostring event-name) "' not registered")))
   (let [event {:timestamp (hs.timer.secondsSinceEpoch)
                : event-name : origin : event-data
                :event-tags (or (. event-tags event-name) (hash-set))}]
@@ -61,7 +74,8 @@
      (print "got event" (fnl.view event)))))
 
 
-{: tag-event
+{: register-event
+ : tag-event
  : add-event-handler
  : remove-event-handler
  : dispatch-event}
