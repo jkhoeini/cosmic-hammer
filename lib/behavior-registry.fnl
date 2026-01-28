@@ -51,7 +51,7 @@
 
 (fn get-behaviors-for-event [event]
   "Get all behaviors subscribed to this event's source+tags."
-  (let [source event.origin
+  (let [source event.event-source
         tags event.event-tags]
     (->> tags
          (mapcat #(get-behaviors-for-source-tag source $))

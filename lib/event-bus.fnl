@@ -6,7 +6,7 @@
 (comment example-event
   {:timestamp  0
    :event-name :window-move
-   :origin     :windows-watcher
+   :event-source :windows-watcher
    :event-tags #{:some-tag :another-tag}
    :event-data {:window-id 123
                 :x 10
@@ -60,11 +60,11 @@
   (set processing? false))
 
 
-(fn dispatch-event [event-name origin event-data]
+(fn dispatch-event [event-name event-source event-data]
   (when (= nil (. event-registry event-name))
     (print (.. "[WARN] dispatch-event: event '" (tostring event-name) "' not registered")))
   (let [event {:timestamp (hs.timer.secondsSinceEpoch)
-               : event-name : origin : event-data
+               : event-name : event-source : event-data
                :event-tags (or (. event-tags event-name) (hash-set))}]
     (table.insert events-queue event)
     (when (not processing?) (process-events))))
