@@ -1,5 +1,6 @@
 (local fnl (require :fennel))
 (local {: hash-set : conj} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: derive} (require :lib.hierarchy))
 
 
 (comment example-event
@@ -18,7 +19,8 @@
 (fn register-event [event-name description schema]
   (when (not= nil (. event-registry event-name))
     (error (.. "Event already registered: " (tostring event-name))))
-  (tset event-registry event-name {:description description :schema schema}))
+  (tset event-registry event-name {:description description :schema schema})
+  (derive event-name :event/any))
 
 
 ;; {event-name -> #{tags}}
@@ -29,7 +31,8 @@
     (print (.. "[WARN] tag-event: event '" (tostring event-name) "' not registered")))
   (when (= nil (. event-tags event-name))
     (tset event-tags event-name (hash-set)))
-  (tset event-tags event-name (conj (. event-tags event-name) tag)))
+  (tset event-tags event-name (conj (. event-tags event-name) tag))
+  (derive tag :tag/any))
 
 
 (local event-handlers {})
