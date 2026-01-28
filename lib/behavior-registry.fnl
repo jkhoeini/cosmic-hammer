@@ -6,7 +6,6 @@
 (comment example-behavior
   {:name :example-behavior
    :description "Some example behavior"
-   :enabled? true
    :respond-to [:example-tag]
    :fn (fn [event] (print (fnl.view event)))})
 
@@ -22,7 +21,6 @@
    Use subscribe-behavior to activate for specific source+tag pairs."
   (let [behavior {:name name
                   :description desc
-                  :enabled? true
                   :respond-to tags
                   :fn f}]
     (tset behaviors-register name behavior)))
