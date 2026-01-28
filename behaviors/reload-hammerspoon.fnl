@@ -10,7 +10,7 @@
 (register-behavior
  :reload-hammerspoon.behaviors/reload-hammerspoon
  "When init.lua changes, reload hammerspoon."
- [:config-dir-file-watcher.tags/file-change]
+ [:event.kind.fs/file-change]
  (fn [file-change-event]
    (let [path (?. file-change-event :event-data :file-path)]
      (when (and (not reloading?)

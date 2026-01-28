@@ -1,5 +1,4 @@
 (local fnl (require :fennel))
-(local {: hash-set : conj} (require :io.gitlab.andreyorst.cljlib.core))
 (local {: derive} (require :lib.hierarchy))
 
 
@@ -7,7 +6,6 @@
   {:timestamp  0
    :event-name :window-move
    :event-source :windows-watcher
-   :event-tags #{:some-tag :another-tag}
    :event-data {:window-id 123
                 :x 10
                 :y 20}})
@@ -20,19 +18,7 @@
   (when (not= nil (. event-registry event-name))
     (error (.. "Event already registered: " (tostring event-name))))
   (tset event-registry event-name {:description description :schema schema})
-  (derive event-name :event/any))
-
-
-;; {event-name -> #{tags}}
-(local event-tags {})
-
-(fn tag-event [event-name tag]
-  (when (= nil (. event-registry event-name))
-    (print (.. "[WARN] tag-event: event '" (tostring event-name) "' not registered")))
-  (when (= nil (. event-tags event-name))
-    (tset event-tags event-name (hash-set)))
-  (tset event-tags event-name (conj (. event-tags event-name) tag))
-  (derive tag :tag/any))
+  (derive event-name :event.kind/any))
 
 
 (local event-handlers {})
@@ -64,8 +50,7 @@
   (when (= nil (. event-registry event-name))
     (print (.. "[WARN] dispatch-event: event '" (tostring event-name) "' not registered")))
   (let [event {:timestamp (hs.timer.secondsSinceEpoch)
-               : event-name : event-source : event-data
-               :event-tags (or (. event-tags event-name) (hash-set))}]
+               : event-name : event-source : event-data}]
     (table.insert events-queue event)
     (when (not processing?) (process-events))))
 
@@ -78,7 +63,6 @@
 
 
 {: register-event
- : tag-event
  : add-event-handler
  : remove-event-handler
  : dispatch-event}
