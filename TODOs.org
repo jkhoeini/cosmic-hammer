@@ -1,0 +1,30 @@
+#+TITLE: Hammerspoon Config TODOs
+#+STARTUP: overview
+
+* Event/Behavior System
+** LATER Consider accepting a set of event-selectors for more flexibility
+   - File: lib/behavior-registry.fnl:22
+   - Currently subscribe-behavior takes a single event-selector
+   - Could allow subscribing to multiple event-selectors at once
+
+** LATER Consider pausing for global source/event-selector/behavior or specific subscription
+   - File: lib/behavior-registry.fnl:85-86
+   - Add ability to pause/disable behaviors temporarily
+   - Could be global or per-subscription
+
+* Core/Setup
+** LATER cliInstall doesn't work due to privileges
+   - File: core.fnl:7
+   - For now linked manually
+   - Need to investigate proper permission handling for hs.ipc.cliInstall
+
+* UI/UX
+** LATER Proper shortcut and configs for expose
+   - File: active-space-indicator.fnl:44
+   - Current expose shortcut is ctrl-cmd-e
+   - Need configurable shortcuts
+
+** LATER Make thumbnail height advisable when #102 lands
+   - File: app-switcher.fnl:7
+   - Related to GitHub issue #102
+   - Thumbnail height calculation should be configurable/advisable
