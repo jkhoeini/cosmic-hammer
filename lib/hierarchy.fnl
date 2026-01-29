@@ -13,34 +13,6 @@
 (local children-map {})
 
 
-(fn derive [child parent]
-  "Establish a parent/child relationship. Makes `child` derive from `parent`.
-   Returns nil."
-  (when (= child parent)
-    (error "Cannot derive a keyword from itself"))
-  ;; Update parents-map
-  (when (= nil (. parents-map child))
-    (tset parents-map child (hash-set)))
-  (tset parents-map child (conj (. parents-map child) parent))
-  ;; Update children-map (reverse mapping)
-  (when (= nil (. children-map parent))
-    (tset children-map parent (hash-set)))
-  (tset children-map parent (conj (. children-map parent) child))
-  nil)
-
-
-(fn underive [child parent]
-  "Remove a parent/child relationship.
-   Returns nil."
-  ;; Update parents-map
-  (when-let [parent-set (. parents-map child)]
-    (tset parents-map child (disj parent-set parent)))
-  ;; Update children-map (reverse mapping)
-  (when-let [child-set (. children-map parent)]
-    (tset children-map parent (disj child-set child)))
-  nil)
-
-
 (fn parents [tag]
   "Get the immediate parents of `tag`. Returns a hash-set."
   (or (. parents-map tag) (hash-set)))
@@ -88,6 +60,36 @@
                     (conj visited p)
                     (table.insert queue p))))))
         found)))
+
+
+(fn derive [child parent]
+  "Establish a parent/child relationship. Makes `child` derive from `parent`.
+   Returns nil."
+  (when (= child parent)
+    (error "Cannot derive a keyword from itself"))
+  (when (isa? parent child)
+    (error (.. "Cycle detected: " (tostring parent) " already derives from " (tostring child))))
+  ;; Update parents-map
+  (when (= nil (. parents-map child))
+    (tset parents-map child (hash-set)))
+  (tset parents-map child (conj (. parents-map child) parent))
+  ;; Update children-map (reverse mapping)
+  (when (= nil (. children-map parent))
+    (tset children-map parent (hash-set)))
+  (tset children-map parent (conj (. children-map parent) child))
+  nil)
+
+
+(fn underive [child parent]
+  "Remove a parent/child relationship.
+   Returns nil."
+  ;; Update parents-map
+  (when-let [parent-set (. parents-map child)]
+    (tset parents-map child (disj parent-set parent)))
+  ;; Update children-map (reverse mapping)
+  (when-let [child-set (. children-map parent)]
+    (tset children-map parent (disj child-set child)))
+  nil)
 
 
 {: derive

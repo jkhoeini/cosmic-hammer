@@ -4,8 +4,9 @@
 
 * Event/Behavior System
 ** Hierarchy
-*** NOW derive should check for cycles                                :feature:
+*** DONE derive should check for cycles                               :feature:
     - Prevent A derives B derives A situations
+    - Uses isa? to detect if parent already derives from child
 
 *** NEXT Cache ancestor lookups                                          :perf:
     - Currently recalculated each time
