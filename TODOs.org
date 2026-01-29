@@ -28,7 +28,7 @@
 *** LATER [#A] Event-sources can be muted                             :feature:
 
 ** Events
-*** NEXT Define all events in one file with proper domain-based event-kinds :refactor:
+*** DONE Define all events in one file with proper domain-based event-kinds :refactor:
 
 ** Behaviors
 *** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:

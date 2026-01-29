@@ -1,5 +1,4 @@
 (local fnl (require :fennel))
-(local {: derive} (require :lib.hierarchy))
 
 
 (comment example-event
@@ -17,8 +16,7 @@
 (fn define-event [event-name description schema]
   (when (not= nil (. events-register event-name))
     (error (.. "Event already registered: " (tostring event-name))))
-  (tset events-register event-name {:description description :schema schema})
-  (derive event-name :event.kind/any))
+  (tset events-register event-name {:description description :schema schema}))
 
 (fn event-defined? [event-name]
   "Check if an event has been defined."

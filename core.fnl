@@ -15,8 +15,9 @@
 (local active-space-indicator (require :active-space-indicator))
 (local notify (require :notify))
 
-;; Load events first, then behaviors
+;; Load events first (definitions only), then event sources, then behaviors
 (require :events)
+(require :event_sources.file-watcher)
 (require :behaviors)
 
 
