@@ -61,13 +61,13 @@
 *** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
 
 ** API/Naming
-*** NOW Rename functions to define-event/behavior/etc                 :refactor:
+*** DONE Rename functions to define-event/behavior/etc                :refactor:
 
-*** NOW Rename registry maps to *-register                           :refactor:
+*** DONE Rename registry maps to *-register                          :refactor:
 
-*** NOW Validate dependencies when defining things                    :feature:
+*** DONE Validate dependencies when defining things                   :feature:
     - When behavior definition mentions event-names, validate they exist
-    - Error early if dependencies are missing
+    - Warns (not errors) if dependencies are missing (due to load order)
 
 *** LATER [#A] Refactor rest of the code to use the event/behavior pattern :refactor:
 

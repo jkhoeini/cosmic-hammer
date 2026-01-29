@@ -12,13 +12,17 @@
 
 
 ;; {event-name -> {:description string :schema {field-name -> validator-fn}}}
-(local event-registry {})
+(local events-register {})
 
-(fn register-event [event-name description schema]
-  (when (not= nil (. event-registry event-name))
+(fn define-event [event-name description schema]
+  (when (not= nil (. events-register event-name))
     (error (.. "Event already registered: " (tostring event-name))))
-  (tset event-registry event-name {:description description :schema schema})
+  (tset events-register event-name {:description description :schema schema})
   (derive event-name :event.kind/any))
+
+(fn event-defined? [event-name]
+  "Check if an event has been defined."
+  (not= nil (. events-register event-name)))
 
 
 (local event-handlers {})
@@ -47,7 +51,7 @@
 
 
 (fn dispatch-event [event-name event-source event-data]
-  (when (= nil (. event-registry event-name))
+  (when (= nil (. events-register event-name))
     (print (.. "[WARN] dispatch-event: event '" (tostring event-name) "' not registered")))
   (let [event {:timestamp (hs.timer.secondsSinceEpoch)
                : event-name : event-source : event-data}]
@@ -62,7 +66,8 @@
      (print "got event" (fnl.view event)))))
 
 
-{: register-event
+{: define-event
+ : event-defined?
  : add-event-handler
  : remove-event-handler
  : dispatch-event}

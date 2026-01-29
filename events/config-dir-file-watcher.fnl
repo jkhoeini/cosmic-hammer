@@ -1,11 +1,11 @@
 
 (local {: mapv : assoc : string?} (require :io.gitlab.andreyorst.cljlib.core))
 
-(local {: register-event : dispatch-event} (require :lib.event-bus))
+(local {: define-event : dispatch-event} (require :lib.event-bus))
 (local {: derive} (require :lib.hierarchy))
 
 
-(register-event :config-dir-file-watcher.events/file-change
+(define-event :config-dir-file-watcher.events/file-change
                 "File change detected in hammerspoon config directory"
                 {:file-path string?})
 

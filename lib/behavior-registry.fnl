@@ -1,14 +1,27 @@
 (local {: into : mapv : hash-set : disj : conj : filter : some} (require :io.gitlab.andreyorst.cljlib.core))
-(local {: add-event-handler} (require :lib.event-bus))
-(local {: ancestors : isa?} (require :lib.hierarchy))
+(local {: add-event-handler : event-defined?} (require :lib.event-bus))
+(local {: ancestors : descendants : isa?} (require :lib.hierarchy))
 
 
 (local behaviors-register {})
 
-(fn register-behavior [name desc event-selectors f]
+(fn valid-event-selector? [selector]
+  "Check if an event-selector is valid:
+   - It's a defined event, OR
+   - It has descendants that are defined events (it's an event-kind)"
+  (or (event-defined? selector)
+      (some event-defined? (descendants selector))))
+
+(fn define-behavior [name desc event-selectors f]
   "Register a behavior with its event-selectors (event-names or ancestors).
    Does not subscribe to any events.
-   Use subscribe-behavior to activate for specific source+event-selector pairs."
+   Use subscribe to activate for specific source+event-selector pairs."
+  ;; Validate event-selectors
+  (each [_ selector (ipairs event-selectors)]
+    (when (not (valid-event-selector? selector))
+      (print (.. "[WARN] define-behavior: event-selector '"
+                 (tostring selector) "' in behavior '"
+                 (tostring name) "' has no matching defined events"))))
   (let [behavior {:name name
                   :description desc
                   :respond-to event-selectors
@@ -17,27 +30,30 @@
 
 
 ;; {source -> {event-selector -> #{behavior-names}}}
-(local subscription-registry {})
+(local subscriptions-register {})
 
 ;; TODO: consider accepting a set of event-selectors for more flexibility
-(fn subscribe-behavior [behavior-name source event-selector]
+(fn subscribe [behavior-name source event-selector]
   "Subscribe a behavior to respond to events matching event-selector.
    event-selector can be a specific event-name or an ancestor (e.g. :event.kind/any)."
   (when (= nil (. behaviors-register behavior-name))
-    (print (.. "[WARN] subscribe-behavior: behavior '" (tostring behavior-name) "' not found in registry")))
-  (when (= nil (. subscription-registry source))
-    (tset subscription-registry source {}))
-  (when (= nil (. subscription-registry source event-selector))
-    (tset subscription-registry source event-selector (hash-set)))
-  (tset subscription-registry source event-selector
-        (conj (. subscription-registry source event-selector) behavior-name)))
+    (print (.. "[WARN] subscribe: behavior '" (tostring behavior-name) "' not found in registry")))
+  (when (not (valid-event-selector? event-selector))
+    (print (.. "[WARN] subscribe: event-selector '" (tostring event-selector)
+               "' has no matching defined events")))
+  (when (= nil (. subscriptions-register source))
+    (tset subscriptions-register source {}))
+  (when (= nil (. subscriptions-register source event-selector))
+    (tset subscriptions-register source event-selector (hash-set)))
+  (tset subscriptions-register source event-selector
+        (conj (. subscriptions-register source event-selector) behavior-name)))
 
 
-(fn unsubscribe-behavior [behavior-name source event-selector]
+(fn unsubscribe [behavior-name source event-selector]
   "Unsubscribe a behavior from a specific source+event-selector pair."
-  (let [behavior-set (?. subscription-registry source event-selector)]
+  (let [behavior-set (?. subscriptions-register source event-selector)]
     (when behavior-set
-      (tset subscription-registry source event-selector
+      (tset subscriptions-register source event-selector
             (disj behavior-set behavior-name)))))
 
 
@@ -58,7 +74,7 @@
                                         _ s (pairs sources)]
                              (accumulate [r result
                                           _ e (pairs event-selectors)]
-                               (into r (or (?. subscription-registry s e) []))))]
+                               (into r (or (?. subscriptions-register s e) []))))]
     (filter (fn [name]
               (let [responds? (behavior-responds-to? name event-name)]
                 (when (not responds?)
@@ -93,6 +109,6 @@
          ((. behavior :fn) event))))))
 
 
-{: register-behavior
- : subscribe-behavior
- : unsubscribe-behavior}
+{: define-behavior
+ : subscribe
+ : unsubscribe}

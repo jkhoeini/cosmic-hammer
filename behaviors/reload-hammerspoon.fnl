@@ -1,5 +1,5 @@
 
-(local {: register-behavior} (require :lib.behavior-registry))
+(local {: define-behavior} (require :lib.behavior-registry))
 (local notify (require :notify))
 
 
@@ -7,7 +7,7 @@
 (local reload (hs.timer.delayed.new 0.5 hs.reload))
 
 
-(register-behavior
+(define-behavior
  :reload-hammerspoon.behaviors/reload-hammerspoon
  "When init.lua changes, reload hammerspoon."
  [:event.kind.fs/file-change]

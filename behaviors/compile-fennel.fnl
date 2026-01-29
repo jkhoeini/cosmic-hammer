@@ -1,8 +1,8 @@
 
-(local {: register-behavior} (require :lib.behavior-registry))
+(local {: define-behavior} (require :lib.behavior-registry))
 
 
-(register-behavior
+(define-behavior
  :compile-fennel.behaviors/compile-fennel
  "Watch fennel files in hammerspoon folder and recompile them."
  [:event.kind.fs/file-change]

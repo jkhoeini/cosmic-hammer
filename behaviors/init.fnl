@@ -6,14 +6,14 @@
 
 
 ;; Centralized subscriptions
-(local {: subscribe-behavior} (require :lib.behavior-registry))
+(local {: subscribe} (require :lib.behavior-registry))
 
-(subscribe-behavior
+(subscribe
  :reload-hammerspoon.behaviors/reload-hammerspoon
  :config-dir-file-watcher
  :event.kind.fs/file-change)
 
-(subscribe-behavior
+(subscribe
  :compile-fennel.behaviors/compile-fennel
  :config-dir-file-watcher
  :event.kind.fs/file-change)
