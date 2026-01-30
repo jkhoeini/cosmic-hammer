@@ -17,7 +17,7 @@
 
 ;; Load events first (definitions only), then event sources, then behaviors
 (require :events)
-(require :event_sources.file-watcher)
+(require :event_sources)
 (require :behaviors)
 
 
