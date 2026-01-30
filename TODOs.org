@@ -36,7 +36,7 @@
     - Handle dependencies between behaviors
 
 ** Subscriptions
-*** NEXT Separate subscription into its own module                    :refactor:
+*** DONE Separate subscription into its own module :refactor:
 
 *** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
     - Currently subscribe-behavior takes a single event-selector

@@ -15,10 +15,11 @@
 (local active-space-indicator (require :active-space-indicator))
 (local notify (require :notify))
 
-;; Load events first (definitions only), then event sources, then behaviors
+;; Load events first (definitions only), then event sources, then behaviors, then dispatcher
 (require :events)
 (require :event_sources)
 (require :behaviors)
+(require :lib.dispatcher)
 
 
 (notify.warn "Reload Succeeded")

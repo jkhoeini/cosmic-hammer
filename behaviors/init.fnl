@@ -6,7 +6,7 @@
 
 
 ;; Centralized subscriptions
-(local {: subscribe} (require :lib.behavior-registry))
+(local {: subscribe} (require :lib.subscription-registry))
 
 (subscribe
  :reload-hammerspoon.behaviors/reload-hammerspoon

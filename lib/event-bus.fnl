@@ -1,5 +1,6 @@
 (local fnl (require :fennel))
-(local {: make-hierarchy} (require :lib.hierarchy))
+(local {: some} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: make-hierarchy : descendants} (require :lib.hierarchy))
 
 
 (comment example-event
@@ -25,6 +26,13 @@
 (fn event-defined? [event-name]
   "Check if an event has been defined."
   (not= nil (. events-register event-name)))
+
+(fn valid-event-selector? [selector]
+  "Check if an event-selector is valid:
+   - It's a defined event, OR
+   - It has descendants that are defined events (it's an event-kind)"
+  (or (event-defined? selector)
+      (some event-defined? (descendants event-hierarchy selector))))
 
 
 (local event-handlers {})
@@ -70,6 +78,7 @@
 
 {: define-event
  : event-defined?
+ : valid-event-selector?
  : event-hierarchy
  : add-event-handler
  : remove-event-handler
