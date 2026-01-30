@@ -1,4 +1,5 @@
 (local fnl (require :fennel))
+(local {: make-hierarchy} (require :lib.hierarchy))
 
 
 (comment example-event
@@ -12,6 +13,9 @@
 
 ;; {event-name -> {:description string :schema {field-name -> validator-fn}}}
 (local events-register {})
+
+;; Event hierarchy for event-kind relationships
+(local event-hierarchy (make-hierarchy))
 
 (fn define-event [event-name description schema]
   (when (not= nil (. events-register event-name))
@@ -66,6 +70,7 @@
 
 {: define-event
  : event-defined?
+ : event-hierarchy
  : add-event-handler
  : remove-event-handler
  : dispatch-event}

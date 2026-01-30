@@ -12,7 +12,7 @@
     - Currently recalculated each time
     - Invalidate cache on derive/underive
 
-*** LATER [#B] Make hierarchies non-global                        :architecture:
+*** DONE Make hierarchies non-global :architecture:
     - Create make-hierarchy function
     - Allow multiple independent hierarchies
 

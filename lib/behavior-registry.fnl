@@ -1,5 +1,5 @@
 (local {: into : mapv : hash-set : disj : conj : filter : some} (require :io.gitlab.andreyorst.cljlib.core))
-(local {: add-event-handler : event-defined?} (require :lib.event-bus))
+(local {: add-event-handler : event-defined? : event-hierarchy} (require :lib.event-bus))
 (local {: ancestors : descendants : isa?} (require :lib.hierarchy))
 
 
@@ -10,7 +10,7 @@
    - It's a defined event, OR
    - It has descendants that are defined events (it's an event-kind)"
   (or (event-defined? selector)
-      (some event-defined? (descendants selector))))
+      (some event-defined? (descendants event-hierarchy selector))))
 
 (fn define-behavior [name desc event-selectors f]
   "Register a behavior with its event-selectors (event-names or ancestors).
@@ -62,14 +62,14 @@
   (let [behavior (. behaviors-register behavior-name)]
     (if (= nil behavior)
         false
-        (some #(isa? event-name $) (. behavior :respond-to)))))
+        (some #(isa? event-hierarchy event-name $) (. behavior :respond-to)))))
 
 
 (fn get-behaviors-for-source-event [source event-name]
   "Get behavior names for a source+event-name pair, including ancestors of both.
    Filters to behaviors whose :respond-to includes the event-name (via isa?)."
-  (let [sources (conj (ancestors source) source)
-        event-selectors (conj (ancestors event-name) event-name)
+  (let [sources (conj (ancestors event-hierarchy source) source)
+        event-selectors (conj (ancestors event-hierarchy event-name) event-name)
         all-behavior-names (accumulate [result (hash-set)
                                         _ s (pairs sources)]
                              (accumulate [r result
