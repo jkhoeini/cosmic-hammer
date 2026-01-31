@@ -2,19 +2,13 @@
 #+STARTUP: overview
 #+TAGS: feature refactor doc architecture perf tooling
 
+* Inbox
+
 * Event/Behavior System
 ** Hierarchy
-*** DONE derive should check for cycles                               :feature:
-    - Prevent A derives B derives A situations
-    - Uses isa? to detect if parent already derives from child
-
 *** LATER [#C] Cache ancestor lookups :perf:
     - Currently recalculated each time
     - Invalidate cache on derive/underive
-
-*** DONE Make hierarchies non-global :architecture:
-    - Create make-hierarchy function
-    - Allow multiple independent hierarchies
 
 *** LATER [#C] Event-hierarchies have schemas that inherit to children :architecture:
     - Event-kinds define schemas
@@ -27,17 +21,12 @@
 
 *** LATER [#A] Event-sources can be muted                             :feature:
 
-** Events
-*** DONE Define all events in one file with proper domain-based event-kinds :refactor:
-
 ** Behaviors
 *** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:
     - Define execution order when multiple behaviors match
     - Handle dependencies between behaviors
 
 ** Subscriptions
-*** DONE Separate subscription into its own module :refactor:
-
 *** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
     - Currently subscribe-behavior takes a single event-selector
     - Could allow subscribing to multiple event-selectors at once
@@ -57,18 +46,11 @@
     - Has config and state
     - Can be queried for config/state
     - Has event-sources and commands
+    - event-source+config+state+commands+presentation
 
 *** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
 
 ** API/Naming
-*** DONE Rename functions to define-event/behavior/etc                :refactor:
-
-*** DONE Rename registry maps to *-register                          :refactor:
-
-*** DONE Validate dependencies when defining things                   :feature:
-    - When behavior definition mentions event-names, validate they exist
-    - Warns (not errors) if dependencies are missing (due to load order)
-
 *** LATER [#A] Refactor rest of the code to use the event/behavior pattern :refactor:
 
 ** Tooling
@@ -104,3 +86,25 @@
 *** LATER [#C] Make thumbnail height advisable when #102 lands        :feature:
     - Related to GitHub issue #102
     - Thumbnail height calculation should be configurable/advisable
+
+* Archived
+** Event/Behavior System
+*** DONE derive should check for cycles                               :feature:
+    - Prevent A derives B derives A situations
+    - Uses isa? to detect if parent already derives from child
+
+*** DONE Make hierarchies non-global :architecture:
+    - Create make-hierarchy function
+    - Allow multiple independent hierarchies
+
+*** DONE Define all events in one file with proper domain-based event-kinds :refactor:
+
+*** DONE Separate subscription into its own module :refactor:
+
+*** DONE Rename functions to define-event/behavior/etc                :refactor:
+
+*** DONE Rename registry maps to *-register                          :refactor:
+
+*** DONE Validate dependencies when defining things                   :feature:
+    - When behavior definition mentions event-names, validate they exist
+    - Warns (not errors) if dependencies are missing (due to load order)
