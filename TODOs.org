@@ -27,6 +27,15 @@
     - Handle dependencies between behaviors
 
 ** Subscriptions
+*** LATER [#A] Expand subscription data model                         :architecture:
+    - name: unique identifier for the subscription
+    - description: human-readable description
+    - behavior: which behavior to invoke
+    - event-selector: which events to match (event-name or event-kind)
+    - event-source-selector: which event sources to match
+    - require-tags: all tags that must exist on the event-source
+    - exclude-tags: tags that must NOT exist on the event-source
+
 *** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
     - Currently subscribe-behavior takes a single event-selector
     - Could allow subscribing to multiple event-selectors at once
@@ -52,6 +61,11 @@
 
 ** API/Naming
 *** LATER [#A] Refactor rest of the code to use the event/behavior pattern :refactor:
+
+*** LATER [#B] Migrate registry/global APIs to datastructure/local APIs :architecture:
+    - Change define-event/behavior/etc to make-event/behavior/etc
+    - Return data structures instead of mutating global registries
+    - Similar to how hierarchy was refactored (make-hierarchy, derive!)
 
 ** Tooling
 *** LATER [#B] Validate schemas in debug mode                         :tooling:
