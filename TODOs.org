@@ -2,6 +2,23 @@
 #+STARTUP: overview
 #+TAGS: feature refactor doc architecture perf tooling
 
+* Vision
+A data-oriented configuration system for Hammerspoon automation.
+
+Users configure their automation using clear, composable concepts:
+- *Event Sources* - things that emit events (file watchers, app monitors, USB listeners)
+- *Events* - named occurrences with structured data
+- *Behaviors* - named handlers that respond to events
+- *Subscriptions* - connections between sources, events, and behaviors with filtering
+- *Tags* - contextual labels for filtering (:work, :personal, :quiet-hours)
+- *Components* - higher-level bundles of config+state+sources+behaviors
+
+The system should be:
+- *Declarative* - configuration as data, not imperative code
+- *Visualizable* - can see what's configured and what's happening
+- *Debuggable* - can trace why something did or didn't trigger
+- *Queryable* - can inspect state (via SQLite, REPL, UI)
+
 * Projects
 ** PROJ Configuration as Data
 Users define automations declaratively using data structures, not procedural code.
@@ -24,6 +41,9 @@ Can serialize, validate, and inspect the entire config.
     - Change define-event/behavior/etc to make-event/behavior/etc
     - Return data structures instead of mutating global registries
     - Similar to how hierarchy was refactored (make-hierarchy, derive!)
+
+*** LATER [#B] Explore Clojure Integrant for data-driven config inspiration :architecture:
+    - https://github.com/weavejester/integrant
 
 *** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
     - Currently subscribe-behavior takes a single event-selector
