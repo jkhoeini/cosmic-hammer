@@ -2,55 +2,6 @@
 #+STARTUP: overview
 #+TAGS: feature refactor doc architecture perf tooling
 
-* Backlog
-** Performance
-*** LATER [#C] Cache ancestor lookups                                 :perf:
-    - Currently recalculated each time
-    - Invalidate cache on derive/underive
-
-** Behaviors
-*** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:
-    - Define execution order when multiple behaviors match
-    - Handle dependencies between behaviors
-
-** Subscriptions
-*** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
-    - Currently subscribe-behavior takes a single event-selector
-    - Could allow subscribing to multiple event-selectors at once
-
-*** LATER [#C] Add debounce/throttle/delay to subscriptions           :feature:
-    - Allow subscriptions to specify timing behavior
-    - Useful for high-frequency events like file watchers
-
-** Components
-*** LATER [#C] Define component concept                               :architecture:
-    - Has config and state
-    - Can be queried for config/state
-    - Has event-sources and commands
-    - event-source+config+state+commands+presentation
-
-*** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
-
-** Documentation
-*** LATER [#C] Create a tutorial-style doc for the event/behavior pattern :doc:
-
-*** LATER [#C] Create doc explaining 4 orthogonal concepts            :doc:
-    - Event-source, Event, Behavior, Subscription
-    - How they are independent but compose together
-
-** Hammerspoon Config
-*** LATER [#C] cliInstall doesn't work due to privileges              :tooling:
-    - For now linked manually
-    - Need to investigate proper permission handling for hs.ipc.cliInstall
-
-*** LATER [#C] Proper shortcut and configs for expose                 :feature:
-    - Current expose shortcut is ctrl-cmd-e
-    - Need configurable shortcuts
-
-*** LATER [#C] Make thumbnail height advisable when #102 lands        :feature:
-    - Related to GitHub issue #102
-    - Thumbnail height calculation should be configurable/advisable
-
 * Projects
 ** PROJ Configuration as Data
 Users define automations declaratively using data structures, not procedural code.
@@ -74,9 +25,37 @@ Can serialize, validate, and inspect the entire config.
     - Return data structures instead of mutating global registries
     - Similar to how hierarchy was refactored (make-hierarchy, derive!)
 
+*** LATER [#B] Consider accepting a set of event-selectors for more flexibility :feature:
+    - Currently subscribe-behavior takes a single event-selector
+    - Could allow subscribing to multiple event-selectors at once
+
 *** LATER [#C] Event-hierarchies have schemas that inherit to children :architecture:
     - Event-kinds define schemas
     - Child events inherit and extend parent schemas
+
+*** LATER [#C] Cache ancestor lookups                                 :perf:
+    - Currently recalculated each time
+    - Invalidate cache on derive/underive
+
+*** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:
+    - Define execution order when multiple behaviors match
+    - Handle dependencies between behaviors
+
+*** LATER [#C] Add debounce/throttle/delay to subscriptions           :feature:
+    - Allow subscriptions to specify timing behavior
+    - Useful for high-frequency events like file watchers
+
+*** LATER [#C] Define component concept                               :architecture:
+    - Has config and state
+    - Can be queried for config/state
+    - Has event-sources and commands
+    - event-source+config+state+commands+presentation
+
+*** LATER [#C] Create a tutorial-style doc for the event/behavior pattern :doc:
+
+*** LATER [#C] Create doc explaining 4 orthogonal concepts            :doc:
+    - Event-source, Event, Behavior, Subscription
+    - How they are independent but compose together
 
 ** PROJ Visibility & Debugging
 Users can see what's configured, what's happening, and why.
@@ -111,7 +90,7 @@ Enables modes, contexts, and conditional behavior.
     - Builds on subscription data model from Configuration as Data project
     - Filter subscriptions based on event-source tags
 
-** PROJ Expand Automation Triggers
+** PROJ Expand Configuration Options
 Users can automate based on more system events.
 
 *** LATER [#A] Create WiFi event source                               :feature:
@@ -141,23 +120,38 @@ Users can automate based on more system events.
 *** LATER [#C] Create Battery event source                            :feature:
     - Emit events on battery level/charging state change
 
+*** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
+
+* Chores
+*** LATER [#C] cliInstall doesn't work due to privileges              :tooling:
+    - For now linked manually
+    - Need to investigate proper permission handling for hs.ipc.cliInstall
+
+*** LATER [#C] Proper shortcut and configs for expose                 :feature:
+    - Current expose shortcut is ctrl-cmd-e
+    - Need configurable shortcuts
+
+*** LATER [#C] Make thumbnail height advisable when #102 lands        :feature:
+    - Related to GitHub issue #102
+    - Thumbnail height calculation should be configurable/advisable
+
 * Archived
-** DONE derive should check for cycles :feature:
+** DONE derive should check for cycles                                :feature:
     - Prevent A derives B derives A situations
     - Uses isa? to detect if parent already derives from child
 
-** DONE Make hierarchies non-global :architecture:
+** DONE Make hierarchies non-global                                   :architecture:
     - Create make-hierarchy function
     - Allow multiple independent hierarchies
 
 ** DONE Define all events in one file with proper domain-based event-kinds :refactor:
 
-** DONE Separate subscription into its own module :refactor:
+** DONE Separate subscription into its own module                     :refactor:
 
-** DONE Rename functions to define-event/behavior/etc :refactor:
+** DONE Rename functions to define-event/behavior/etc                 :refactor:
 
-** DONE Rename registry maps to *-register :refactor:
+** DONE Rename registry maps to *-register                            :refactor:
 
-** DONE Validate dependencies when defining things :feature:
+** DONE Validate dependencies when defining things                    :feature:
     - When behavior definition mentions event-names, validate they exist
     - Warns (not errors) if dependencies are missing (due to load order)
