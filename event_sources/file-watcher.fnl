@@ -2,7 +2,7 @@
 ;; event_sources/file-watcher.fnl
 ;; Event source type: watches a directory for file changes
 
-(local {: mapv : assoc : string?} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: mapv : assoc : string?} (require :lib.cljlib-shim))
 (local {: define-source-type} (require :lib.source-registry))
 
 

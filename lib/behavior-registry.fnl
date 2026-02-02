@@ -2,7 +2,7 @@
 ;; lib/behavior-registry.fnl
 ;; Manages behavior definitions.
 
-(local {: some} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: some} (require :lib.cljlib-shim))
 (local {: valid-event-selector? : event-hierarchy} (require :lib.event-bus))
 (local {: isa?} (require :lib.hierarchy))
 

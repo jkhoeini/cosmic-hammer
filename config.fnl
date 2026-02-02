@@ -1,5 +1,5 @@
 
-(local core (require :io.gitlab.andreyorst.cljlib.core))
+(local core (require :lib.cljlib-shim))
 (local windows (require :windows))
 (local emacs (require :emacs))
 

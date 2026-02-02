@@ -1,5 +1,4 @@
-(local fnl (require :fennel))
-(local {: some} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: some} (require :lib.cljlib-shim))
 (local {: make-hierarchy : descendants} (require :lib.hierarchy))
 
 
@@ -73,7 +72,7 @@
  :event-bus/debug-handler
  (fn [event]
    (when (. _G :event-bus.debug-mode?)
-     (print "got event" (fnl.view event)))))
+     (print "got event" (hs.inspect event)))))
 
 
 {: define-event

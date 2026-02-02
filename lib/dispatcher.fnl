@@ -2,7 +2,7 @@
 ;; lib/dispatcher.fnl
 ;; Routes events to subscribed behaviors.
 
-(local {: into : mapv : hash-set : conj : filter} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: into : mapv : hash-set : conj : filter} (require :lib.cljlib-shim))
 (local {: add-event-handler : event-hierarchy} (require :lib.event-bus))
 (local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
 (local {: subscriptions-register} (require :lib.subscription-registry))

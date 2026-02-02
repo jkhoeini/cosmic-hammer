@@ -2,7 +2,7 @@
 ;; lib/subscription-registry.fnl
 ;; Manages subscriptions connecting behaviors to source+event-selector pairs.
 
-(local {: hash-set : disj : conj} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: hash-set : disj : conj} (require :lib.cljlib-shim))
 (local {: valid-event-selector?} (require :lib.event-bus))
 (local {: behaviors-register} (require :lib.behavior-registry))
 (local {: source-instance-exists?} (require :lib.source-registry))

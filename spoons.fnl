@@ -1,6 +1,5 @@
 
-(local {: contains?} (require :io.gitlab.andreyorst.cljlib.core))
-(local fnl (require :fennel))
+(local {: contains?} (require :lib.cljlib-shim))
 
 (local loaded-spoons
        (icollect [i spoon (ipairs (hs.spoons.list))] (. spoon :name)))

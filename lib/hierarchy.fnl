@@ -8,7 +8,7 @@
 ;; Data structure shape:
 ;; {:keyword {:parents #{:parent1 :parent2} :children #{:child1 :child2}}}
 
-(local {: hash-set : conj : disj : contains? : into : mapcat} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: hash-set : conj : disj : contains? : into : mapcat} (require :lib.cljlib-shim))
 
 
 (fn ensure-entry [h tag]

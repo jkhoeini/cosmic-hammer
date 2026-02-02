@@ -2,7 +2,7 @@
 ;; events/init.fnl
 ;; Central event registry: event-kind hierarchy + all event definitions
 
-(local {: string?} (require :io.gitlab.andreyorst.cljlib.core))
+(local {: string?} (require :lib.cljlib-shim))
 (local {: define-event : event-hierarchy} (require :lib.event-bus))
 (local {: derive!} (require :lib.hierarchy))
 
