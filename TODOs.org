@@ -21,29 +21,29 @@ The system should be:
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
 * Projects
-** PROJ Configuration as Data [0/14]
+** PROJ Configuration as Data [2/14]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
-*** Milestone 1: Multiple Instances of the Same Source Type [1/2]
+*** Milestone 1: Multiple Instances of the Same Source Type [2/2]
 User can create multiple instances of the same event-source type (e.g., two file-watchers watching different directories), each with its own config.
 
 **** DONE Separate event-source class/instance concepts               :refactor:
 
-**** LATER [#A] Event-sources can specify what they can emit          :feature:
+**** DONE Event-sources can specify what they can emit :feature:
 
 *** Milestone 2: Serializable Config [0/4]
 Entire automation config can be represented as a single data structure, serialized to a file, and loaded back.
 
-**** LATER [#B] Migrate registry/global APIs to datastructure/local APIs :architecture:
+**** NEXT Migrate registry/global APIs to datastructure/local APIs :architecture:
      - Change define-event/behavior/etc to make-event/behavior/etc
      - Return data structures instead of mutating global registries
      - Similar to how hierarchy was refactored (make-hierarchy, derive!)
 
-**** LATER [#B] Explore Clojure Integrant for data-driven config inspiration :architecture:
+**** NEXT Explore Clojure Integrant for data-driven config inspiration :architecture:
      - https://github.com/weavejester/integrant
 
-**** LATER [#A] Expand subscription data model                        :architecture:
+**** NEXT Expand subscription data model :architecture:
      - name: unique identifier for the subscription
      - description: human-readable description
      - behavior: which behavior to invoke
@@ -52,7 +52,7 @@ Entire automation config can be represented as a single data structure, serializ
      - require-tags: all tags that must exist on the event-source (placeholder for Contextual Automation)
      - exclude-tags: tags that must NOT exist on the event-source (placeholder for Contextual Automation)
 
-**** LATER [#A] Refactor rest of the code to use the event/behavior pattern :refactor:
+**** NEXT Refactor rest of the code to use the event/behavior pattern :refactor:
 
 *** Milestone 3: Rich Subscription Matching [0/3]
 Subscriptions can match events using flexible criteria - multiple event types, hierarchical matching, timing controls.

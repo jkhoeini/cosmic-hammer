@@ -8,7 +8,6 @@
 ;; Data structure shape:
 ;; {:keyword {:parents #{:parent1 :parent2} :children #{:child1 :child2}}}
 
-(import-macros {: when-let} :io.gitlab.andreyorst.cljlib.core)
 (local {: hash-set : conj : disj : contains? : into : mapcat} (require :io.gitlab.andreyorst.cljlib.core))
 
 
@@ -85,10 +84,12 @@
 (fn underive! [h child parent]
   "Remove a parent/child relationship in hierarchy `h`.
    Mutates `h` and returns `h`."
-  (when-let [entry (. h child)]
-    (tset entry :parents (disj (. entry :parents) parent)))
-  (when-let [entry (. h parent)]
-    (tset entry :children (disj (. entry :children) child)))
+  (let [child-entry (. h child)]
+    (when child-entry
+      (tset child-entry :parents (disj (. child-entry :parents) parent))))
+  (let [parent-entry (. h parent)]
+    (when parent-entry
+      (tset parent-entry :children (disj (. parent-entry :children) child))))
   h)
 
 
