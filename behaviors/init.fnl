@@ -10,12 +10,12 @@
 
 (subscribe
  :reload-hammerspoon.behaviors/reload-hammerspoon
- :file-watcher
+ :event-source.file-watcher/config-dir
  :event.kind.fs/file-change)
 
 (subscribe
  :compile-fennel.behaviors/compile-fennel
- :file-watcher
+ :event-source.file-watcher/config-dir
  :event.kind.fs/file-change)
 
 

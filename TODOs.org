@@ -25,10 +25,10 @@ The system should be:
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
-*** Milestone 1: Multiple Instances of the Same Source Type [0/2]
+*** Milestone 1: Multiple Instances of the Same Source Type [1/2]
 User can create multiple instances of the same event-source type (e.g., two file-watchers watching different directories), each with its own config.
 
-**** NEXT Separate event-source class/instance concepts               :refactor:
+**** DONE Separate event-source class/instance concepts               :refactor:
 
 **** LATER [#A] Event-sources can specify what they can emit          :feature:
 

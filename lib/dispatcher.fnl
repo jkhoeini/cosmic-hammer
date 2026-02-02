@@ -6,6 +6,7 @@
 (local {: add-event-handler : event-hierarchy} (require :lib.event-bus))
 (local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
 (local {: subscriptions-register} (require :lib.subscription-registry))
+(local {: source-instance-exists?} (require :lib.source-registry))
 (local {: ancestors} (require :lib.hierarchy))
 
 
@@ -31,14 +32,17 @@
 (fn get-behaviors-for-event [event]
   "Get all behaviors subscribed to this event's source+event-name."
   (let [source event.event-source
-        event-name event.event-name
-        behavior-names (get-behaviors-for-source-event source event-name)]
-    (mapv (fn [name]
-            (let [behavior (. behaviors-register name)]
-              (when (= nil behavior)
-                (print (.. "[ERROR] get-behaviors-for-event: behavior '" (tostring name) "' not found in registry")))
-              behavior))
-          behavior-names)))
+        event-name event.event-name]
+    (when (not (source-instance-exists? source))
+      (print (.. "[WARN] get-behaviors-for-event: unknown source instance '"
+                 (tostring source) "'")))
+    (let [behavior-names (get-behaviors-for-source-event source event-name)]
+      (mapv (fn [name]
+              (let [behavior (. behaviors-register name)]
+                (when (= nil behavior)
+                  (print (.. "[ERROR] get-behaviors-for-event: behavior '" (tostring name) "' not found in registry")))
+                behavior))
+            behavior-names))))
 
 
 ;; Register the dispatcher that routes events to subscribed behaviors

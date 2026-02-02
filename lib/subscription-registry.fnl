@@ -5,6 +5,7 @@
 (local {: hash-set : disj : conj} (require :io.gitlab.andreyorst.cljlib.core))
 (local {: valid-event-selector?} (require :lib.event-bus))
 (local {: behaviors-register} (require :lib.behavior-registry))
+(local {: source-instance-exists?} (require :lib.source-registry))
 
 
 ;; {source -> {event-selector -> #{behavior-names}}}
@@ -16,6 +17,8 @@
    event-selector can be a specific event-name or an ancestor (e.g. :event.kind/any)."
   (when (= nil (. behaviors-register behavior-name))
     (print (.. "[WARN] subscribe: behavior '" (tostring behavior-name) "' not found in registry")))
+  (when (not (source-instance-exists? source))
+    (print (.. "[WARN] subscribe: source instance '" (tostring source) "' not found")))
   (when (not (valid-event-selector? event-selector))
     (print (.. "[WARN] subscribe: event-selector '" (tostring event-selector)
                "' has no matching defined events")))
