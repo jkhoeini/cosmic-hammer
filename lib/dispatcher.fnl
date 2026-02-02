@@ -2,7 +2,7 @@
 ;; lib/dispatcher.fnl
 ;; Routes events to subscribed behaviors.
 
-(local {: into : mapv : hash-set : conj : filter} (require :lib.cljlib-shim))
+(local {: into : mapv : hash-set : conj : filter : seq} (require :lib.cljlib-shim))
 (local {: add-event-handler : event-hierarchy} (require :lib.event-bus))
 (local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
 (local {: subscriptions-register} (require :lib.subscription-registry))
@@ -26,7 +26,7 @@
                              (tostring name) "' does not respond to event '"
                              (tostring event-name) "'")))
                 responds?))
-            all-behavior-names)))
+            (seq all-behavior-names))))
 
 
 (fn get-behaviors-for-event [event]

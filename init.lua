@@ -349,6 +349,7 @@ end
 package.preload["lib.event-bus"] = package.preload["lib.event-bus"] or function(...)
   local _local_22_ = require("lib.cljlib-shim")
   local some = _local_22_.some
+  local seq = _local_22_.seq
   local _local_46_ = require("lib.hierarchy")
   local make_hierarchy = _local_46_["make-hierarchy"]
   local descendants = _local_46_.descendants
@@ -367,7 +368,7 @@ package.preload["lib.event-bus"] = package.preload["lib.event-bus"] or function(
     return (nil ~= events_register[event_name])
   end
   local function valid_event_selector_3f(selector)
-    return (event_defined_3f(selector) or some(event_defined_3f, descendants(event_hierarchy, selector)))
+    return (event_defined_3f(selector) or some(event_defined_3f, seq(descendants(event_hierarchy, selector))))
   end
   local event_handlers = {}
   local function add_event_handler(key, handler)
@@ -429,6 +430,8 @@ package.preload["lib.hierarchy"] = package.preload["lib.hierarchy"] or function(
   local contains_3f = _local_23_["contains?"]
   local into = _local_23_.into
   local mapcat = _local_23_.mapcat
+  local empty_3f = _local_23_["empty?"]
+  local seq = _local_23_.seq
   local function ensure_entry(h, tag)
     if (nil == h[tag]) then
       h[tag] = {parents = hash_set(), children = hash_set()}
@@ -471,24 +474,24 @@ package.preload["lib.hierarchy"] = package.preload["lib.hierarchy"] or function(
   end
   local function ancestors(h, tag)
     local ps = parents(h, tag)
-    if (0 == #ps) then
+    if empty_3f(ps) then
       return ps
     else
       local function _33_(_241)
         return ancestors(h, _241)
       end
-      return into(ps, mapcat(_33_, ps))
+      return into(ps, mapcat(_33_, seq(ps)))
     end
   end
   local function descendants(h, tag)
     local cs = children(h, tag)
-    if (0 == #cs) then
+    if empty_3f(cs) then
       return cs
     else
       local function _35_(_241)
         return descendants(h, _241)
       end
-      return into(cs, mapcat(_35_, cs))
+      return into(cs, mapcat(_35_, seq(cs)))
     end
   end
   local function isa_3f(h, child, parent)
@@ -863,6 +866,7 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
   local hash_set = _local_101_["hash-set"]
   local conj = _local_101_.conj
   local filter = _local_101_.filter
+  local seq = _local_101_.seq
   local _local_102_ = require("lib.event-bus")
   local add_event_handler = _local_102_["add-event-handler"]
   local event_hierarchy = _local_102_["event-hierarchy"]
@@ -894,7 +898,7 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
       end
       return responds_3f
     end
-    return filter(_107_, all_behavior_names)
+    return filter(_107_, seq(all_behavior_names))
   end
   local function get_behaviors_for_event(event)
     local source = event["event-source"]

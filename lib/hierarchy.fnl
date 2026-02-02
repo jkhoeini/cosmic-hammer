@@ -8,7 +8,7 @@
 ;; Data structure shape:
 ;; {:keyword {:parents #{:parent1 :parent2} :children #{:child1 :child2}}}
 
-(local {: hash-set : conj : disj : contains? : into : mapcat} (require :lib.cljlib-shim))
+(local {: hash-set : conj : disj : contains? : into : mapcat : empty? : seq} (require :lib.cljlib-shim))
 
 
 (fn ensure-entry [h tag]
@@ -31,18 +31,18 @@
   "Get all ancestors of `tag` in hierarchy `h` (transitive closure of parents).
    Returns a hash-set."
   (let [ps (parents h tag)]
-    (if (= 0 (length ps))
+    (if (empty? ps)
         ps
-        (into ps (mapcat #(ancestors h $) ps)))))
+        (into ps (mapcat #(ancestors h $) (seq ps))))))
 
 
 (fn descendants [h tag]
   "Get all descendants of `tag` in hierarchy `h` (transitive closure of children).
    Returns a hash-set."
   (let [cs (children h tag)]
-    (if (= 0 (length cs))
+    (if (empty? cs)
         cs
-        (into cs (mapcat #(descendants h $) cs)))))
+        (into cs (mapcat #(descendants h $) (seq cs))))))
 
 
 (fn isa? [h child parent]

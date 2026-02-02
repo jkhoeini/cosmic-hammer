@@ -1,4 +1,4 @@
-(local {: some} (require :lib.cljlib-shim))
+(local {: some : seq} (require :lib.cljlib-shim))
 (local {: make-hierarchy : descendants} (require :lib.hierarchy))
 
 
@@ -31,7 +31,7 @@
    - It's a defined event, OR
    - It has descendants that are defined events (it's an event-kind)"
   (or (event-defined? selector)
-      (some event-defined? (descendants event-hierarchy selector))))
+      (some event-defined? (seq (descendants event-hierarchy selector)))))
 
 
 (local event-handlers {})
