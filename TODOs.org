@@ -40,9 +40,6 @@ Entire automation config can be represented as a single data structure, serializ
      - Return data structures instead of mutating global registries
      - Similar to how hierarchy was refactored (make-hierarchy, derive!)
 
-**** NEXT Explore Clojure Integrant for data-driven config inspiration :architecture:
-     - https://github.com/weavejester/integrant
-
 **** NEXT Expand subscription data model :architecture:
      - name: unique identifier for the subscription
      - description: human-readable description
@@ -53,6 +50,10 @@ Entire automation config can be represented as a single data structure, serializ
      - exclude-tags: tags that must NOT exist on the event-source (placeholder for Contextual Automation)
 
 **** NEXT Refactor rest of the code to use the event/behavior pattern :refactor:
+
+**** LATER [#C] Explore Clojure Integrant for data-driven config inspiration :architecture:
+     - https://github.com/weavejester/integrant
+     - component, mount, arachne, duct, etc
 
 *** Milestone 3: Rich Subscription Matching [0/3]
 Subscriptions can match events using flexible criteria - multiple event types, hierarchical matching, timing controls.
