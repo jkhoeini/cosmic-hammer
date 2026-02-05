@@ -21,7 +21,7 @@ The system should be:
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
 * Projects
-** PROJ Configuration as Data [2/14]
+** PROJ Configuration as Data [3/14]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
@@ -32,7 +32,7 @@ User can create multiple instances of the same event-source type (e.g., two file
 
 **** DONE Event-sources can specify what they can emit :feature:
 
-*** Milestone 2: Serializable Config [0/4]
+*** Milestone 2: Serializable Config [1/4]
 Entire automation config can be represented as a single data structure, serialized to a file, and loaded back.
 
 **** NEXT Migrate registry/global APIs to datastructure/local APIs :architecture:
@@ -40,14 +40,17 @@ Entire automation config can be represented as a single data structure, serializ
      - Return data structures instead of mutating global registries
      - Similar to how hierarchy was refactored (make-hierarchy, derive!)
 
-**** NEXT Expand subscription data model :architecture:
+**** DONE Expand subscription data model :architecture:
      - name: unique identifier for the subscription
      - description: human-readable description
      - behavior: which behavior to invoke
      - event-selector: which events to match (event-name or event-kind)
-     - event-source-selector: which event sources to match
+     - source-selector: which event sources to match
      - require-tags: all tags that must exist on the event-source (placeholder for Contextual Automation)
      - exclude-tags: tags that must NOT exist on the event-source (placeholder for Contextual Automation)
+     - Renamed subscribe -> define-subscription, unsubscribe -> remove-subscription
+     - Added strict validation (errors on missing behavior/source/event-selector)
+     - Moved get-subscribed-behaviors from dispatcher to subscription-registry
 
 **** NEXT Refactor rest of the code to use the event/behavior pattern :refactor:
 
