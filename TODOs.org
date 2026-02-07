@@ -40,8 +40,8 @@ Entire automation config can be represented as a single data structure, serializ
      - [ ] behaviors-register (lib/behavior-registry.fnl)
      - [ ] subscriptions-register (lib/subscription-registry.fnl)
      - [ ] subscriptions-index (lib/subscription-registry.fnl)
-     - [ ] source-types-register (lib/source-registry.fnl)
-     - [ ] source-instances-register (lib/source-registry.fnl)
+     - [X] source-types-register (lib/source-registry.fnl)
+     - [X] source-instances-register (lib/source-registry.fnl)
 
 **** DONE Expand subscription data model :architecture:
      - name: unique identifier for the subscription

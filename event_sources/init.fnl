@@ -1,18 +1,25 @@
 
 ;; event_sources/init.fnl
-;; Load event source type definitions and create instances.
+;; Create source registry, load source types, and create instances.
 
-(local {: start-event-source} (require :lib.source-registry))
+(local {: make-source-registry : add-source-type! : start-event-source!} (require :lib.source-registry))
+(local {: event-registry} (require :events))
+(local {: file-watcher-source-type} (require :event_sources.file-watcher))
 
-;; Load source type definitions
-(require :event_sources.file-watcher)
+
+;; Create source registry
+(local source-registry (make-source-registry {:event-registry event-registry}))
+
+
+;; Register source types
+(add-source-type! source-registry file-watcher-source-type)
 
 
 ;; Create source instances
-(start-event-source
- :event-source.file-watcher/config-dir
- :event-source.type/file-watcher
- {:path hs.configdir})
+(start-event-source! source-registry
+                     :event-source.file-watcher/config-dir
+                     :event-source.type/file-watcher
+                     {:path hs.configdir})
 
 
-{}
+{: source-registry}

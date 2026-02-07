@@ -3,7 +3,7 @@
 ;; Event source type: watches a directory for file changes
 
 (local {: mapv : assoc : string?} (require :lib.cljlib-shim))
-(local {: define-source-type} (require :lib.source-registry))
+(local {: make-source-type} (require :lib.source-registry))
 
 
 (fn start-file-watcher [self emit]
@@ -28,13 +28,14 @@
     (state:stop)))
 
 
-(define-source-type
- :event-source.type/file-watcher
- "Watches a directory for file changes"
- {:config-schema {:path string?}
-  :emits [:file-watcher.events/file-change]
-  :start-fn start-file-watcher
-  :stop-fn stop-file-watcher})
+(local file-watcher-source-type
+  (make-source-type
+   :event-source.type/file-watcher
+   "Watches a directory for file changes"
+   {:config-schema {:path string?}
+    :emits [:file-watcher.events/file-change]
+    :start-fn start-file-watcher
+    :stop-fn stop-file-watcher}))
 
 
-{}
+{: file-watcher-source-type}

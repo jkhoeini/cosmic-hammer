@@ -15,6 +15,7 @@
 (local {: event-registry} (require :events))
 (local {: valid-event-selector?} (require :lib.event-registry))
 (local {: behaviors-register} (require :lib.behavior-registry))
+(local {: source-registry} (require :event_sources))
 (local {: source-instance-exists?} (require :lib.source-registry))
 (local {: ancestors} (require :lib.hierarchy))
 
@@ -83,7 +84,7 @@
                ": behavior not found: " (tostring opts.behavior))))
   
   ;; Check source exists
-  (when (not (source-instance-exists? opts.source-selector))
+  (when (not (source-instance-exists? source-registry opts.source-selector))
     (error (.. "define-subscription " (tostring name)
                ": source instance not found: " (tostring opts.source-selector))))
   

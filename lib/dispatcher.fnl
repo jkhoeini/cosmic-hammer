@@ -10,12 +10,13 @@
 (local {: add-event-handler!} (require :lib.event-registry))
 (local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
 (local {: get-subscribed-behaviors} (require :lib.subscription-registry))
+(local {: source-registry} (require :event_sources))
 (local {: source-instance-exists?} (require :lib.source-registry))
 
 
 (fn get-behaviors-for-event [event]
   "Get all behaviors for this event, resolved from registry."
-  (when (not (source-instance-exists? event.event-source))
+  (when (not (source-instance-exists? source-registry event.event-source))
     (print (.. "[WARN] get-behaviors-for-event: unknown source instance '"
                (tostring event.event-source) "'")))
   (let [behavior-names (or (get-subscribed-behaviors event.event-source event.event-name) [])
