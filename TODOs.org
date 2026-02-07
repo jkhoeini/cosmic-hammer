@@ -43,6 +43,10 @@ Entire automation config can be represented as a single data structure, serializ
      - [X] source-types-register (lib/source-registry.fnl)
      - [X] source-instances-register (lib/source-registry.fnl)
 
+**** NEXT Remove external requires from lib/ modules              :architecture:
+     lib/ modules should have no dependencies on application modules
+     (events/, event_sources/, behaviors/).
+
 **** DONE Expand subscription data model :architecture:
      - name: unique identifier for the subscription
      - description: human-readable description
