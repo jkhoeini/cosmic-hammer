@@ -1,9 +1,13 @@
 
 ;; lib/dispatcher.fnl
-;; Routes events to subscribed behaviors.
+;; Behavior routing for events.
+;;
+;; This module provides the logic for routing events to subscribed behaviors.
+;; Registers handlers as a side effect when required.
 
 (local {: mapv : filter : seq} (require :lib.cljlib-shim))
-(local {: add-event-handler} (require :lib.event-bus))
+(local {: event-registry} (require :events))
+(local {: add-event-handler!} (require :lib.event-registry))
 (local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
 (local {: get-subscribed-behaviors} (require :lib.subscription-registry))
 (local {: source-instance-exists?} (require :lib.source-registry))
@@ -33,14 +37,18 @@
           (or (seq valid-names) []))))
 
 
-;; Register the dispatcher that routes events to subscribed behaviors
-(add-event-handler
- :dispatcher/event-handler
- (fn [event]
-   (let [bs (get-behaviors-for-event event)]
-     (each [_ behavior (pairs bs)]
-       (when behavior
-         ((. behavior :fn) event))))))
+;; Register handlers (side effect at require time)
+(add-event-handler! event-registry :dispatcher/behavior-router
+                    (fn [event]
+                      (let [bs (get-behaviors-for-event event)]
+                        (each [_ behavior (pairs bs)]
+                          (when behavior
+                            ((. behavior :fn) event))))))
+
+(add-event-handler! event-registry :dispatcher/debug-handler
+                    (fn [event]
+                      (when (. _G :event-bus.debug-mode?)
+                        (print "got event" (hs.inspect event)))))
 
 
 {: get-behaviors-for-event}

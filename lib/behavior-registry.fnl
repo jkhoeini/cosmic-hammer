@@ -3,7 +3,8 @@
 ;; Manages behavior definitions.
 
 (local {: some} (require :lib.cljlib-shim))
-(local {: valid-event-selector? : event-hierarchy} (require :lib.event-bus))
+(local {: event-registry} (require :events))
+(local {: valid-event-selector?} (require :lib.event-registry))
 (local {: isa?} (require :lib.hierarchy))
 
 
@@ -13,9 +14,9 @@
 (fn define-behavior [name desc event-selectors f]
   "Register a behavior with its event-selectors (event-names or ancestors).
    Does not subscribe to any events.
-   Use subscribe to activate for specific source+event-selector pairs."
+   Use define-subscription to activate for specific source+event-selector pairs."
   (each [_ selector (ipairs event-selectors)]
-    (when (not (valid-event-selector? selector))
+    (when (not (valid-event-selector? event-registry selector))
       (print (.. "[WARN] define-behavior: event-selector '"
                  (tostring selector) "' in behavior '"
                  (tostring name) "' has no matching defined events"))))
@@ -31,7 +32,7 @@
   (let [behavior (. behaviors-register behavior-name)]
     (if (= nil behavior)
         false
-        (some #(isa? event-hierarchy event-name $) (. behavior :respond-to)))))
+        (some #(isa? event-registry.hierarchy event-name $) (. behavior :respond-to)))))
 
 
 {: behaviors-register

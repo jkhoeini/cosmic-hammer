@@ -35,10 +35,13 @@ User can create multiple instances of the same event-source type (e.g., two file
 *** Milestone 2: Serializable Config [1/4]
 Entire automation config can be represented as a single data structure, serialized to a file, and loaded back.
 
-**** NEXT Migrate registry/global APIs to datastructure/local APIs :architecture:
-     - Change define-event/behavior/etc to make-event/behavior/etc
-     - Return data structures instead of mutating global registries
-     - Similar to how hierarchy was refactored (make-hierarchy, derive!)
+**** NOW Migrate registry/global APIs to datastructure/local APIs :architecture:
+     - [X] event-registry (lib/event-registry.fnl)
+     - [ ] behaviors-register (lib/behavior-registry.fnl)
+     - [ ] subscriptions-register (lib/subscription-registry.fnl)
+     - [ ] subscriptions-index (lib/subscription-registry.fnl)
+     - [ ] source-types-register (lib/source-registry.fnl)
+     - [ ] source-instances-register (lib/source-registry.fnl)
 
 **** DONE Expand subscription data model :architecture:
      - name: unique identifier for the subscription

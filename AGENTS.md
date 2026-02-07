@@ -1,6 +1,6 @@
 # AGENTS.md - Coding Agent Guidelines
 
-This is a **Hammerspoon configuration project** using **Fennel** (a Lisp that compiles to Lua). Originally cloned from [spacehammer](https://github.com/agzam/spacehammer/) but heavily modified with a data-oriented, event-driven architecture inspired by Clojure.
+A **Hammerspoon configuration** using **Fennel** (Lisp that compiles to Lua). Data-oriented, event-driven architecture inspired by Clojure.
 
 ## Build Commands
 
@@ -12,23 +12,19 @@ This is a **Hammerspoon configuration project** using **Fennel** (a Lisp that co
 # 1. Compiles lib/cljlib-shim.fnl -> lib/cljlib-shim.lua
 # 2. Compiles core.fnl -> init.lua (main entry point)
 
-# Reload Hammerspoon after compilation
-# Use Cmd+Ctrl+Q or call hs.reload() from the console
+# Reload Hammerspoon after compilation: Cmd+Ctrl+Q or hs.reload() in console
 ```
 
-**Requirements:**
-- [mise](https://mise.jdx.dev/) for tool management
-- `deps` tool (installed via mise from deps.fnl project)
+**Requirements:** [mise](https://mise.jdx.dev/) for tool management, `deps` tool (from deps.fnl project)
 
-**No test framework is configured.** Testing is done manually via Hammerspoon console.
-
-**No linter is configured.** Use Fennel compiler errors for feedback.
+**No test framework.** Testing done manually via Hammerspoon console.
+**No linter.** Use Fennel compiler errors for feedback.
 
 ## Project Structure
 
 ```
 .hammerspoon/
-├── core.fnl              # Main entry point -> compiles to init.lua
+├── core.fnl              # Entry point -> compiles to init.lua
 ├── init.lua              # COMPILED OUTPUT - DO NOT EDIT
 ├── compile.sh            # Build script
 ├── deps.fnl              # Fennel dependencies (fennel-cljlib)
@@ -36,11 +32,12 @@ This is a **Hammerspoon configuration project** using **Fennel** (a Lisp that co
 ├── lib/                  # Core library modules
 │   ├── cljlib-shim.fnl   # Re-exports cljlib.core
 │   ├── hierarchy.fnl     # Clojure-style keyword hierarchies
-│   ├── event-bus.fnl     # Event dispatch system
-│   ├── behavior-registry.fnl
-│   ├── subscription-registry.fnl
-│   ├── source-registry.fnl
-│   └── dispatcher.fnl
+│   ├── event-registry.fnl    # Event definitions and dispatch
+│   ├── behavior-registry.fnl # Behavior definitions
+│   ├── subscription-registry.fnl  # Connects behaviors to events
+│   ├── source-registry.fnl   # Event source types
+│   ├── dispatcher.fnl        # Routes events to behaviors
+│   └── event-loop.fnl        # Event processing loop
 ├── events/init.fnl       # Event hierarchy and definitions
 ├── event_sources/        # Event source implementations
 ├── behaviors/            # Behavior implementations
@@ -56,7 +53,7 @@ Always use destructuring imports at the top of the file:
 ```fennel
 ;; Destructuring imports (preferred)
 (local {: some : seq : hash-set} (require :lib.cljlib-shim))
-(local {: define-event : dispatch-event} (require :lib.event-bus))
+(local {: define-event! : dispatch-event!} (require :lib.event-registry))
 
 ;; Plain require for single-export modules
 (local notify (require :notify))
@@ -66,9 +63,9 @@ Always use destructuring imports at the top of the file:
 
 | Type | Convention | Examples |
 |------|------------|----------|
-| Functions | `kebab-case` | `define-behavior`, `dispatch-event` |
+| Functions | `kebab-case` | `define-behavior`, `dispatch-event!` |
 | Predicates | End with `?` | `event-defined?`, `empty?`, `isa?` |
-| Mutating functions | End with `!` | `derive!`, `underive!` |
+| Mutating functions | End with `!` | `derive!`, `underive!`, `dispatch-event!` |
 | Keywords | `:kebab-case` | `:window-move`, `:file-change` |
 | Namespaced keywords | `:namespace/name` | `:event.kind.fs/file-change` |
 | Optional parameters | Prefix with `?` | `?init-pairs`, `?config` |
@@ -77,9 +74,6 @@ Always use destructuring imports at the top of the file:
 ### Module Pattern
 
 ```fennel
-;; Module docstring (optional)
-"Module description here"
-
 ;; Imports at top
 (local {: func1 : func2} (require :some-module))
 
@@ -102,7 +96,7 @@ Always use destructuring imports at the top of the file:
  : another-public-fn}
 ```
 
-### Comments
+### Comments and Formatting
 
 ```fennel
 ;; Single-line comments use double semicolon
@@ -113,9 +107,7 @@ Always use destructuring imports at the top of the file:
 
 ;; Use (comment ...) for example data structures
 (comment example-event
-  {:timestamp 0
-   :event-name :window-move
-   :event-data {:x 10 :y 20}})
+  {:timestamp 0 :event-name :window-move :event-data {:x 10 :y 20}})
 ```
 
 ### Error Handling
@@ -127,7 +119,7 @@ Always use destructuring imports at the top of the file:
 
 ;; Non-fatal warnings - use (print "[WARN] ...")
 (when (= nil (. events-register event-name))
-  (print (.. "[WARN] dispatch-event: event '" (tostring event-name) "' not registered")))
+  (print (.. "[WARN] dispatch-event!: event '" (tostring event-name) "' not defined")))
 
 ;; Guard clauses with (when ...) for nil checks
 (when child-entry
@@ -136,8 +128,6 @@ Always use destructuring imports at the top of the file:
 
 ### Cljlib Utilities (Clojure-style)
 
-This project uses `fennel-cljlib` for Clojure-like data manipulation:
-
 ```fennel
 (hash-set)              ; Create empty set
 (conj set item)         ; Add item to set (returns new set)
@@ -145,7 +135,7 @@ This project uses `fennel-cljlib` for Clojure-like data manipulation:
 (contains? set x)       ; Check membership
 (into coll items)       ; Add all items to collection
 (mapv f coll)           ; Map returning vector
-(mapcat f coll)         ; Map and concatenate results
+(filter pred coll)      ; Filter collection
 (some pred coll)        ; Find first truthy result
 (seq coll)              ; Convert to sequence (nil if empty)
 (empty? coll)           ; Check if empty
@@ -155,67 +145,55 @@ This project uses `fennel-cljlib` for Clojure-like data manipulation:
 
 ## Architecture Overview
 
-This project follows a **data-oriented, event-driven architecture**:
+Event-driven architecture with these components:
 
-1. **Event Sources** - Emit events (file watchers, app monitors, USB listeners)
-2. **Events** - Named occurrences with structured data and hierarchical kinds
+1. **Event Sources** - Emit events (file watchers, app monitors)
+2. **Events** - Named occurrences with structured data, organized in hierarchy
 3. **Behaviors** - Named handlers that respond to events
-4. **Subscriptions** - Connect behaviors to source+event pairs with filtering
+4. **Subscriptions** - Connect behaviors to source+event pairs
 5. **Hierarchies** - Enable hierarchical event matching (like Clojure multimethods)
 
-### Key Concepts
-
-- Events have **names** (`:fs/file-change`) and belong to **kinds** (`:event.kind/fs`)
-- Hierarchies enable matching by kind: subscribe to `:event.kind/fs` to get all filesystem events
-- Behaviors are pure functions that receive event data
-- Subscriptions wire everything together declaratively
-
-## Important Files
-
-| File | Purpose |
-|------|---------|
-| `core.fnl` | Entry point, loads all modules |
-| `lib/event-bus.fnl` | Core event dispatch system |
-| `lib/hierarchy.fnl` | Clojure-style hierarchy for event matching |
-| `lib/behavior-registry.fnl` | Behavior definition and lookup |
-| `lib/subscription-registry.fnl` | Connects behaviors to events |
-| `events/init.fnl` | All event kind definitions |
-| `TODOs.org` | Project roadmap and task tracking |
-
-## Common Patterns
-
-### Defining an Event
+### Common Patterns
 
 ```fennel
-(define-event :fs/file-change
-              "Emitted when a watched file changes"
-              {:path "string" :flags "table"})
-```
+;; Defining an Event (in events/init.fnl)
+(define-event! event-registry
+               :file-watcher.events/file-change
+               "File change detected"
+               {:file-path string?})
+(derive! event-hierarchy :file-watcher.events/file-change :event.kind.fs/file-change)
 
-### Defining a Behavior
-
-```fennel
+;; Defining a Behavior
 (define-behavior :reload-on-change
                  "Reloads Hammerspoon when config files change"
-                 [:fs/file-change]  ; events this behavior handles
+                 [:event.kind.fs/file-change]  ; event selectors
                  (fn [event] ...))
-```
 
-### Creating a Hierarchy
+;; Defining a Subscription
+(define-subscription :sub/reload-on-config-change
+  {:description "Reload when config changes"
+   :behavior :reload-on-change
+   :event-selector :event.kind.fs/file-change
+   :source-selector :source/config-watcher})
 
-```fennel
-(local h (make-hierarchy [:child :parent
-                          :grandchild :child]))
-(isa? h :grandchild :parent)  ; => true
+;; Defining an Event Source Type
+(define-source-type :event-source.type/file-watcher
+  "Watches directory for changes"
+  {:config-schema {:path string?}
+   :emits [:file-watcher.events/file-change]
+   :start-fn start-file-watcher
+   :stop-fn stop-file-watcher})
 ```
 
 ## Hammerspoon APIs
 
-This runs in Hammerspoon's Lua environment. Common APIs:
+Common APIs used in this codebase:
 - `hs.timer.secondsSinceEpoch` - Current timestamp
 - `hs.inspect` - Pretty-print tables for debugging
 - `hs.reload()` - Reload Hammerspoon config
 - `hs.alert()` - Show on-screen alert
 - `hs.notify` - System notifications
+- `hs.pathwatcher` - File system watcher
+- `hs.execute` - Run shell commands
 
 See [Hammerspoon API docs](https://www.hammerspoon.org/docs/) for full reference.

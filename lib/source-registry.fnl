@@ -9,7 +9,8 @@
 ;;   Type:     :event-source.type/file-watcher
 ;;   Instance: :event-source.file-watcher/config-dir
 
-(local {: dispatch-event} (require :lib.event-bus))
+(local {: event-registry} (require :events))
+(local {: dispatch-event!} (require :lib.event-registry))
 
 
 ;; {type-name -> {:description string :config-schema table :emits [event-name] :start-fn fn :stop-fn fn}}
@@ -73,7 +74,7 @@
                 :config (or config {})}
           ;; Create an emit function that dispatches with this instance as source
           emit (fn [event-name event-data]
-                 (dispatch-event event-name instance-name event-data))
+                 (dispatch-event! event-registry event-name instance-name event-data))
           ;; Call start-fn to get state
           state (source-type.start-fn self emit)]
       (tset source-instances-register instance-name

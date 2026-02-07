@@ -1,10 +1,13 @@
 
 ;; events/init.fnl
 ;; Central event registry: event-kind hierarchy + all event definitions
+;;
+;; This module creates and exports the event-registry.
+;; The hierarchy is accessible via event-registry.hierarchy
 
 (local {: string?} (require :lib.cljlib-shim))
-(local {: define-event : event-hierarchy} (require :lib.event-bus))
-(local {: derive!} (require :lib.hierarchy))
+(local {: make-event-registry : define-event!} (require :lib.event-registry))
+(local {: make-hierarchy : derive!} (require :lib.hierarchy))
 
 
 ;; ============================================================================
@@ -58,6 +61,7 @@
 ;; └── :event.kind.battery/any             ;; Battery events
 ;;     └── :event.kind.battery/changed
 
+(local event-hierarchy (make-hierarchy))
 
 ;; --- File System ---
 (derive! event-hierarchy :event.kind.fs/any :event.kind/any)
@@ -117,14 +121,23 @@
 
 
 ;; ============================================================================
+;; Event Registry
+;; ============================================================================
+
+(local event-registry (make-event-registry {:hierarchy event-hierarchy}))
+
+
+;; ============================================================================
 ;; Event Definitions
 ;; ============================================================================
 
 ;; --- File Watcher Events ---
-(define-event :file-watcher.events/file-change
-              "File change detected in watched directory"
-              {:file-path string?})
+(define-event! event-registry
+               :file-watcher.events/file-change
+               "File change detected in watched directory"
+               {:file-path string?})
 (derive! event-hierarchy :file-watcher.events/file-change :event.kind.fs/file-change)
 
 
-{}
+;; Export registry (hierarchy accessible via event-registry.hierarchy)
+{: event-registry}

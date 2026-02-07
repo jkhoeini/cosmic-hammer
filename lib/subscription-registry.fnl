@@ -12,7 +12,8 @@
 ;;    :exclude-tags []}  ; placeholder for future
 
 (local {: hash-set : conj : disj : into : seq : filter} (require :lib.cljlib-shim))
-(local {: valid-event-selector? : event-hierarchy} (require :lib.event-bus))
+(local {: event-registry} (require :events))
+(local {: valid-event-selector?} (require :lib.event-registry))
 (local {: behaviors-register} (require :lib.behavior-registry))
 (local {: source-instance-exists?} (require :lib.source-registry))
 (local {: ancestors} (require :lib.hierarchy))
@@ -87,7 +88,7 @@
                ": source instance not found: " (tostring opts.source-selector))))
   
   ;; Check event-selector is valid
-  (when (not (valid-event-selector? opts.event-selector))
+  (when (not (valid-event-selector? event-registry opts.event-selector))
     (error (.. "define-subscription " (tostring name)
                ": invalid event-selector: " (tostring opts.event-selector)))))
 
@@ -151,7 +152,7 @@
    Checks subscriptions for the source and all ancestor event-selectors.
    Returns a sequence of behavior names (may contain duplicates if same
    behavior subscribed via multiple selectors)."
-  (let [event-selectors (conj (ancestors event-hierarchy event-name) event-name)
+  (let [event-selectors (conj (ancestors event-registry.hierarchy event-name) event-name)
         source-subs (or (. subscriptions-index source) {})
         all-behavior-names (accumulate [result (hash-set)
                                         _ e (pairs event-selectors)]
