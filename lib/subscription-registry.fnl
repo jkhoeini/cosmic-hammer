@@ -14,7 +14,7 @@
 (local {: hash-set : conj : disj : into : seq : filter} (require :lib.cljlib-shim))
 (local {: event-registry} (require :events))
 (local {: valid-event-selector?} (require :lib.event-registry))
-(local {: behaviors-register} (require :lib.behavior-registry))
+(local {: behavior-defined?} (require :lib.behavior-registry))
 (local {: source-registry} (require :event_sources))
 (local {: source-instance-exists?} (require :lib.source-registry))
 (local {: ancestors} (require :lib.hierarchy))
@@ -78,10 +78,11 @@
   (when (not= nil (. subscriptions-register name))
     (error (.. "Subscription already defined: " (tostring name))))
   
-  ;; Check behavior exists
-  (when (= nil (. behaviors-register opts.behavior))
-    (error (.. "define-subscription " (tostring name)
-               ": behavior not found: " (tostring opts.behavior))))
+  ;; Check behavior exists (lazy require to avoid circular dependency)
+  (let [{: behavior-registry} (require :behaviors)]
+    (when (not (behavior-defined? behavior-registry opts.behavior))
+      (error (.. "define-subscription " (tostring name)
+                 ": behavior not found: " (tostring opts.behavior)))))
   
   ;; Check source exists
   (when (not (source-instance-exists? source-registry opts.source-selector))

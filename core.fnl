@@ -19,6 +19,7 @@
 (local {: event-registry} (require :events))
 (require :event_sources)
 (require :behaviors)
+(require :subscriptions)
 
 ;; Register event handlers (side effect when dispatcher is required)
 (require :lib.dispatcher)

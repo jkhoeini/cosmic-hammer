@@ -1,26 +1,18 @@
 
-;; Load all behavior modules (registration only)
+;; behaviors/init.fnl
+;; Creates behavior registry and wires everything together.
 
-(require :behaviors.reload-hammerspoon)
-(require :behaviors.compile-fennel)
+(local {: make-behavior-registry : add-behavior!} (require :lib.behavior-registry))
+(local {: event-registry} (require :events))
 
+;; Import behavior data
+(local {: compile-fennel-behavior} (require :behaviors.compile-fennel))
+(local {: reload-hammerspoon-behavior} (require :behaviors.reload-hammerspoon))
 
-;; Centralized subscriptions
-(local {: define-subscription} (require :lib.subscription-registry))
+;; Create and populate registry
+(local behavior-registry (make-behavior-registry {:event-registry event-registry}))
+(add-behavior! behavior-registry compile-fennel-behavior)
+(add-behavior! behavior-registry reload-hammerspoon-behavior)
 
-(define-subscription
- :sub/reload-on-config-change
- {:description "Reload Hammerspoon when init.lua changes"
-  :behavior :reload-hammerspoon.behaviors/reload-hammerspoon
-  :source-selector :event-source.file-watcher/config-dir
-  :event-selector :event.kind.fs/file-change})
-
-(define-subscription
- :sub/compile-on-fnl-change
- {:description "Recompile Fennel when .fnl files change"
-  :behavior :compile-fennel.behaviors/compile-fennel
-  :source-selector :event-source.file-watcher/config-dir
-  :event-selector :event.kind.fs/file-change})
-
-
-{}
+;; Export registry for other modules
+{: behavior-registry}

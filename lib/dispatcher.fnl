@@ -8,13 +8,13 @@
 (local {: mapv : filter : seq} (require :lib.cljlib-shim))
 (local {: event-registry} (require :events))
 (local {: add-event-handler!} (require :lib.event-registry))
-(local {: behaviors-register : behavior-responds-to?} (require :lib.behavior-registry))
+(local {: behavior-responds-to? : get-behavior} (require :lib.behavior-registry))
 (local {: get-subscribed-behaviors} (require :lib.subscription-registry))
 (local {: source-registry} (require :event_sources))
 (local {: source-instance-exists?} (require :lib.source-registry))
 
 
-(fn get-behaviors-for-event [event]
+(fn get-behaviors-for-event [behavior-registry event]
   "Get all behaviors for this event, resolved from registry."
   (when (not (source-instance-exists? source-registry event.event-source))
     (print (.. "[WARN] get-behaviors-for-event: unknown source instance '"
@@ -22,7 +22,7 @@
   (let [behavior-names (or (get-subscribed-behaviors event.event-source event.event-name) [])
         ;; Filter to behaviors that actually respond to this event-name
         valid-names (filter (fn [name]
-                              (let [responds? (behavior-responds-to? name event.event-name)]
+                              (let [responds? (behavior-responds-to? behavior-registry name event.event-name)]
                                 (when (not responds?)
                                   (print (.. "[ERROR] get-behaviors-for-event: behavior '"
                                              (tostring name) "' does not respond to event '"
@@ -30,7 +30,7 @@
                                 responds?))
                             behavior-names)]
     (mapv (fn [name]
-            (let [behavior (. behaviors-register name)]
+            (let [behavior (get-behavior behavior-registry name)]
               (when (= nil behavior)
                 (print (.. "[ERROR] get-behaviors-for-event: behavior '"
                            (tostring name) "' not found in registry")))
@@ -41,7 +41,9 @@
 ;; Register handlers (side effect at require time)
 (add-event-handler! event-registry :dispatcher/behavior-router
                     (fn [event]
-                      (let [bs (get-behaviors-for-event event)]
+                      ;; Lazy require to avoid circular dependency
+                      (let [{: behavior-registry} (require :behaviors)
+                            bs (get-behaviors-for-event behavior-registry event)]
                         (each [_ behavior (pairs bs)]
                           (when behavior
                             ((. behavior :fn) event))))))
@@ -52,4 +54,4 @@
                         (print "got event" (hs.inspect event)))))
 
 
-{: get-behaviors-for-event}
+{}

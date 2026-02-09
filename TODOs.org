@@ -37,9 +37,10 @@ Entire automation config can be represented as a single data structure, serializ
 
 **** NOW Migrate registry/global APIs to datastructure/local APIs :architecture:
      - [X] event-registry (lib/event-registry.fnl)
-     - [ ] behaviors-register (lib/behavior-registry.fnl)
+     - [X] behaviors-register (lib/behavior-registry.fnl)
      - [ ] subscriptions-register (lib/subscription-registry.fnl)
      - [ ] subscriptions-index (lib/subscription-registry.fnl)
+     - [ ] lib/dispatcher.fnl
      - [X] source-types-register (lib/source-registry.fnl)
      - [X] source-instances-register (lib/source-registry.fnl)
 
