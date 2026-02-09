@@ -19,13 +19,13 @@
 (local {: event-registry} (require :events))
 (require :event_sources)
 (require :behaviors)
-(require :subscriptions)
+(local {: subscription-registry} (require :subscriptions))
 
-;; Register event handlers (side effect when dispatcher is required)
-(require :lib.dispatcher)
-
-;; Start event loop
+;; Start dispatcher and event loop
+(local {: start-dispatcher!} (require :lib.dispatcher))
 (local {: start-event-loop!} (require :lib.event-loop))
+
+(start-dispatcher! subscription-registry)
 (start-event-loop! event-registry)
 
 

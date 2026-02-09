@@ -1001,14 +1001,13 @@ package.preload["lib.subscription-registry"] = package.preload["lib.subscription
   end
   return {["make-subscription-registry"] = make_subscription_registry, ["define-subscription!"] = define_subscription_21, ["remove-subscription!"] = remove_subscription_21, ["get-subscription"] = get_subscription, ["list-subscriptions"] = list_subscriptions, ["subscription-defined?"] = subscription_defined_3f, ["get-subscribed-behaviors"] = get_subscribed_behaviors}
 end
-require("subscriptions")
+local _local_123_ = require("subscriptions")
+local subscription_registry = _local_123_["subscription-registry"]
 package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or function(...)
-  local _local_123_ = require("lib.cljlib-shim")
-  local mapv = _local_123_.mapv
-  local filter = _local_123_.filter
-  local seq = _local_123_.seq
-  local _local_124_ = require("events")
-  local event_registry = _local_124_["event-registry"]
+  local _local_124_ = require("lib.cljlib-shim")
+  local mapv = _local_124_.mapv
+  local filter = _local_124_.filter
+  local seq = _local_124_.seq
   local _local_125_ = require("lib.event-registry")
   local add_event_handler_21 = _local_125_["add-event-handler!"]
   local _local_126_ = require("lib.behavior-registry")
@@ -1016,18 +1015,18 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
   local get_behavior = _local_126_["get-behavior"]
   local _local_127_ = require("lib.subscription-registry")
   local get_subscribed_behaviors = _local_127_["get-subscribed-behaviors"]
-  local _local_128_ = require("event_sources")
-  local source_registry = _local_128_["source-registry"]
-  local _local_129_ = require("lib.source-registry")
-  local source_instance_exists_3f = _local_129_["source-instance-exists?"]
-  local function get_behaviors_for_event(behavior_registry, subscription_registry, event)
+  local _local_128_ = require("lib.source-registry")
+  local source_instance_exists_3f = _local_128_["source-instance-exists?"]
+  local function get_behaviors_for_event(subscription_registry, event)
+    local behavior_registry = subscription_registry["behavior-registry"]
+    local source_registry = subscription_registry["source-registry"]
     if not source_instance_exists_3f(source_registry, event["event-source"]) then
       print(("[WARN] get-behaviors-for-event: unknown source instance '" .. tostring(event["event-source"]) .. "'"))
     else
     end
     local behavior_names = (get_subscribed_behaviors(subscription_registry, event["event-source"], event["event-name"]) or {})
     local valid_names
-    local function _131_(name)
+    local function _130_(name)
       local responds_3f = behavior_responds_to_3f(behavior_registry, name, event["event-name"])
       if not responds_3f then
         print(("[ERROR] get-behaviors-for-event: behavior '" .. tostring(name) .. "' does not respond to event '" .. tostring(event["event-name"]) .. "'"))
@@ -1035,8 +1034,8 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
       end
       return responds_3f
     end
-    valid_names = filter(_131_, behavior_names)
-    local function _133_(name)
+    valid_names = filter(_130_, behavior_names)
+    local function _132_(name)
       local behavior = get_behavior(behavior_registry, name)
       if (nil == behavior) then
         print(("[ERROR] get-behaviors-for-event: behavior '" .. tostring(name) .. "' not found in registry"))
@@ -1044,34 +1043,35 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
       end
       return behavior
     end
-    return mapv(_133_, (seq(valid_names) or {}))
+    return mapv(_132_, (seq(valid_names) or {}))
   end
-  local function _135_(event)
-    local _let_136_ = require("behaviors")
-    local behavior_registry = _let_136_["behavior-registry"]
-    local _let_137_ = require("subscriptions")
-    local subscription_registry = _let_137_["subscription-registry"]
-    local bs = get_behaviors_for_event(behavior_registry, subscription_registry, event)
-    for _, behavior in pairs(bs) do
-      if behavior then
-        behavior.fn(event)
-      else
+  local function start_dispatcher_21(subscription_registry)
+    local event_registry = subscription_registry["event-registry"]
+    local function _134_(event)
+      local bs = get_behaviors_for_event(subscription_registry, event)
+      for _, behavior in pairs(bs) do
+        if behavior then
+          behavior.fn(event)
+        else
+        end
       end
-    end
-    return nil
-  end
-  add_event_handler_21(event_registry, "dispatcher/behavior-router", _135_)
-  local function _139_(event)
-    if _G["event-bus.debug-mode?"] then
-      return print("got event", hs.inspect(event))
-    else
       return nil
     end
+    add_event_handler_21(event_registry, "dispatcher/behavior-router", _134_)
+    local function _136_(event)
+      if _G["event-bus.debug-mode?"] then
+        return print("got event", hs.inspect(event))
+      else
+        return nil
+      end
+    end
+    return add_event_handler_21(event_registry, "dispatcher/debug-handler", _136_)
   end
-  add_event_handler_21(event_registry, "dispatcher/debug-handler", _139_)
-  return {}
+  return {["start-dispatcher!"] = start_dispatcher_21}
 end
-require("lib.dispatcher")
+local _local_138_ = require("lib.dispatcher")
+local start_dispatcher_21 = _local_138_["start-dispatcher!"]
+start_dispatcher_21(subscription_registry)
 package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or function(...)
   local event_loop_timer = nil
   local current_registry = nil
@@ -1092,12 +1092,12 @@ package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or functio
       event_loop_timer:stop()
     else
     end
-    local function _143_()
+    local function _141_()
       while process_event_21(current_registry) do
       end
       return nil
     end
-    event_loop_timer = hs.timer.new(0.01, _143_)
+    event_loop_timer = hs.timer.new(0.01, _141_)
     event_loop_timer:start()
     return print("[INFO] Event loop started")
   end
@@ -1113,8 +1113,8 @@ package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or functio
   end
   return {["process-event!"] = process_event_21, ["start-event-loop!"] = start_event_loop_21, ["stop-event-loop!"] = stop_event_loop_21}
 end
-local _local_145_ = require("lib.event-loop")
-local start_event_loop_21 = _local_145_["start-event-loop!"]
+local _local_143_ = require("lib.event-loop")
+local start_event_loop_21 = _local_143_["start-event-loop!"]
 start_event_loop_21(event_registry)
 notify.warn("Reload Succeeded")
 return {}

@@ -40,9 +40,10 @@ Entire automation config can be represented as a single data structure, serializ
      - [X] behaviors-register (lib/behavior-registry.fnl)
      - [X] subscriptions-register (lib/subscription-registry.fnl)
      - [X] subscriptions-index (lib/subscription-registry.fnl)
-     - [ ] lib/dispatcher.fnl (still imports singleton instances from :events and :event_sources; side-effects on require; needs register-dispatcher! function)
+     - [X] lib/dispatcher.fnl
      - [X] source-types-register (lib/source-registry.fnl)
      - [X] source-instances-register (lib/source-registry.fnl)
+     - [ ] event-loop
 
 **** NEXT Remove external requires from lib/ modules              :architecture:
      lib/ modules should have no dependencies on application modules
