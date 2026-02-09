@@ -38,9 +38,9 @@ Entire automation config can be represented as a single data structure, serializ
 **** NOW Migrate registry/global APIs to datastructure/local APIs :architecture:
      - [X] event-registry (lib/event-registry.fnl)
      - [X] behaviors-register (lib/behavior-registry.fnl)
-     - [ ] subscriptions-register (lib/subscription-registry.fnl)
-     - [ ] subscriptions-index (lib/subscription-registry.fnl)
-     - [ ] lib/dispatcher.fnl
+     - [X] subscriptions-register (lib/subscription-registry.fnl)
+     - [X] subscriptions-index (lib/subscription-registry.fnl)
+     - [ ] lib/dispatcher.fnl (still imports singleton instances from :events and :event_sources; side-effects on require; needs register-dispatcher! function)
      - [X] source-types-register (lib/source-registry.fnl)
      - [X] source-instances-register (lib/source-registry.fnl)
 
@@ -59,6 +59,16 @@ Entire automation config can be represented as a single data structure, serializ
      - Renamed subscribe -> define-subscription, unsubscribe -> remove-subscription
      - Added strict validation (errors on missing behavior/source/event-selector)
      - Moved get-subscribed-behaviors from dispatcher to subscription-registry
+
+**** LATER [#B] Standardize registry constructors and define-*! functions :refactor:
+     - All make-*-registry constructors accept an optional initial list of items
+     - Split define-*! functions into make-* (pure, creates item) and add-*! (mutates registry)
+     - behavior-registry already has this (make-behavior + add-behavior!)
+     - source-registry already has this (make-source-type + add-source-type!)
+     - subscription-registry needs splitting (define-subscription! -> make-subscription + add-subscription!)
+     - event-registry needs splitting (define-event! -> make-event + add-event!)
+     - Refactor existing init modules to use constructor list instead of sequential add-*! calls
+     - Keep add-*! functions available for runtime use
 
 **** NEXT Refactor rest of the code to use the event/behavior pattern :refactor:
 
