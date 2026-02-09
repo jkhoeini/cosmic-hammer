@@ -1,3 +1,4 @@
 .deps
 /Spoons
 .DS_Store
+.workspaces/
