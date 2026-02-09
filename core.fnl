@@ -23,10 +23,11 @@
 
 ;; Start dispatcher and event loop
 (local {: start-dispatcher!} (require :lib.dispatcher))
-(local {: start-event-loop!} (require :lib.event-loop))
+(local {: make-event-loop : start-event-loop!} (require :lib.event-loop))
 
 (start-dispatcher! subscription-registry)
-(start-event-loop! event-registry)
+(local event-loop (make-event-loop event-registry))
+(start-event-loop! event-loop)
 
 
 (notify.warn "Reload Succeeded")

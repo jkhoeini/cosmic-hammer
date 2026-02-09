@@ -1071,11 +1071,16 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
 end
 local _local_138_ = require("lib.dispatcher")
 local start_dispatcher_21 = _local_138_["start-dispatcher!"]
-start_dispatcher_21(subscription_registry)
 package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or function(...)
-  local event_loop_timer = nil
-  local current_registry = nil
-  local function process_event_21(registry)
+  local function make_event_loop(event_registry)
+    if (nil == event_registry) then
+      error("make-event-loop: event-registry is required")
+    else
+    end
+    return {["event-registry"] = event_registry, timer = nil}
+  end
+  local function process_event_21(event_loop)
+    local registry = event_loop["event-registry"]
     if (0 < #registry.queue) then
       local event = table.remove(registry.queue, 1)
       for _, handler in pairs(registry.handlers) do
@@ -1086,35 +1091,38 @@ package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or functio
       return false
     end
   end
-  local function start_event_loop_21(registry)
-    current_registry = registry
-    if event_loop_timer then
-      event_loop_timer:stop()
+  local function start_event_loop_21(event_loop)
+    if event_loop.timer then
+      event_loop.timer:stop()
     else
     end
-    local function _141_()
-      while process_event_21(current_registry) do
+    local timer
+    local function _142_()
+      while process_event_21(event_loop) do
       end
       return nil
     end
-    event_loop_timer = hs.timer.new(0.01, _141_)
-    event_loop_timer:start()
+    timer = hs.timer.new(0.01, _142_)
+    event_loop["timer"] = timer
+    timer:start()
     return print("[INFO] Event loop started")
   end
-  local function stop_event_loop_21()
-    if event_loop_timer then
-      event_loop_timer:stop()
-      event_loop_timer = nil
-      current_registry = nil
+  local function stop_event_loop_21(event_loop)
+    if event_loop.timer then
+      event_loop.timer:stop()
+      event_loop["timer"] = nil
       return print("[INFO] Event loop stopped")
     else
       return nil
     end
   end
-  return {["process-event!"] = process_event_21, ["start-event-loop!"] = start_event_loop_21, ["stop-event-loop!"] = stop_event_loop_21}
+  return {["make-event-loop"] = make_event_loop, ["process-event!"] = process_event_21, ["start-event-loop!"] = start_event_loop_21, ["stop-event-loop!"] = stop_event_loop_21}
 end
-local _local_143_ = require("lib.event-loop")
-local start_event_loop_21 = _local_143_["start-event-loop!"]
-start_event_loop_21(event_registry)
+local _local_144_ = require("lib.event-loop")
+local make_event_loop = _local_144_["make-event-loop"]
+local start_event_loop_21 = _local_144_["start-event-loop!"]
+start_dispatcher_21(subscription_registry)
+local event_loop = make_event_loop(event_registry)
+start_event_loop_21(event_loop)
 notify.warn("Reload Succeeded")
 return {}
