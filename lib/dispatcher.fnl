@@ -14,12 +14,12 @@
 (local {: source-instance-exists?} (require :lib.source-registry))
 
 
-(fn get-behaviors-for-event [behavior-registry event]
+(fn get-behaviors-for-event [behavior-registry subscription-registry event]
   "Get all behaviors for this event, resolved from registry."
   (when (not (source-instance-exists? source-registry event.event-source))
     (print (.. "[WARN] get-behaviors-for-event: unknown source instance '"
                (tostring event.event-source) "'")))
-  (let [behavior-names (or (get-subscribed-behaviors event.event-source event.event-name) [])
+  (let [behavior-names (or (get-subscribed-behaviors subscription-registry event.event-source event.event-name) [])
         ;; Filter to behaviors that actually respond to this event-name
         valid-names (filter (fn [name]
                               (let [responds? (behavior-responds-to? behavior-registry name event.event-name)]
@@ -43,7 +43,8 @@
                     (fn [event]
                       ;; Lazy require to avoid circular dependency
                       (let [{: behavior-registry} (require :behaviors)
-                            bs (get-behaviors-for-event behavior-registry event)]
+                            {: subscription-registry} (require :subscriptions)
+                            bs (get-behaviors-for-event behavior-registry subscription-registry event)]
                         (each [_ behavior (pairs bs)]
                           (when behavior
                             ((. behavior :fn) event))))))

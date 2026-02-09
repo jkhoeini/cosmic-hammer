@@ -843,9 +843,18 @@ end
 require("behaviors")
 package.preload["subscriptions"] = package.preload["subscriptions"] or function(...)
   local _local_119_ = require("lib.subscription-registry")
-  local define_subscription = _local_119_["define-subscription"]
-  define_subscription("sub/reload-on-config-change", {description = "Reload Hammerspoon when init.lua changes", behavior = "reload-hammerspoon.behaviors/reload-hammerspoon", ["source-selector"] = "event-source.file-watcher/config-dir", ["event-selector"] = "event.kind.fs/file-change"})
-  return define_subscription("sub/compile-on-fnl-change", {description = "Recompile Fennel when .fnl files change", behavior = "compile-fennel.behaviors/compile-fennel", ["source-selector"] = "event-source.file-watcher/config-dir", ["event-selector"] = "event.kind.fs/file-change"})
+  local make_subscription_registry = _local_119_["make-subscription-registry"]
+  local define_subscription_21 = _local_119_["define-subscription!"]
+  local _local_120_ = require("events")
+  local event_registry = _local_120_["event-registry"]
+  local _local_121_ = require("behaviors")
+  local behavior_registry = _local_121_["behavior-registry"]
+  local _local_122_ = require("event_sources")
+  local source_registry = _local_122_["source-registry"]
+  local subscription_registry = make_subscription_registry({["event-registry"] = event_registry, ["behavior-registry"] = behavior_registry, ["source-registry"] = source_registry})
+  define_subscription_21(subscription_registry, "sub/reload-on-config-change", {description = "Reload Hammerspoon when init.lua changes", behavior = "reload-hammerspoon.behaviors/reload-hammerspoon", ["source-selector"] = "event-source.file-watcher/config-dir", ["event-selector"] = "event.kind.fs/file-change"})
+  define_subscription_21(subscription_registry, "sub/compile-on-fnl-change", {description = "Recompile Fennel when .fnl files change", behavior = "compile-fennel.behaviors/compile-fennel", ["source-selector"] = "event-source.file-watcher/config-dir", ["event-selector"] = "event.kind.fs/file-change"})
+  return {["subscription-registry"] = subscription_registry}
 end
 package.preload["lib.subscription-registry"] = package.preload["lib.subscription-registry"] or function(...)
   local _local_99_ = require("lib.cljlib-shim")
@@ -855,54 +864,63 @@ package.preload["lib.subscription-registry"] = package.preload["lib.subscription
   local into = _local_99_.into
   local seq = _local_99_.seq
   local filter = _local_99_.filter
-  local _local_100_ = require("events")
-  local event_registry = _local_100_["event-registry"]
-  local _local_101_ = require("lib.event-registry")
-  local valid_event_selector_3f = _local_101_["valid-event-selector?"]
-  local _local_102_ = require("lib.behavior-registry")
-  local behavior_defined_3f = _local_102_["behavior-defined?"]
-  local _local_103_ = require("event_sources")
-  local source_registry = _local_103_["source-registry"]
-  local _local_104_ = require("lib.source-registry")
-  local source_instance_exists_3f = _local_104_["source-instance-exists?"]
-  local _local_105_ = require("lib.hierarchy")
-  local ancestors = _local_105_.ancestors
-  local subscriptions_register = {}
-  local subscriptions_index = {}
-  local function index_add_21(subscription)
+  local _local_100_ = require("lib.event-registry")
+  local valid_event_selector_3f = _local_100_["valid-event-selector?"]
+  local _local_101_ = require("lib.behavior-registry")
+  local behavior_defined_3f = _local_101_["behavior-defined?"]
+  local _local_102_ = require("lib.source-registry")
+  local source_instance_exists_3f = _local_102_["source-instance-exists?"]
+  local _local_103_ = require("lib.hierarchy")
+  local ancestors = _local_103_.ancestors
+  local function make_subscription_registry(opts)
+    if (nil == opts["event-registry"]) then
+      error("make-subscription-registry: :event-registry is required")
+    else
+    end
+    if (nil == opts["behavior-registry"]) then
+      error("make-subscription-registry: :behavior-registry is required")
+    else
+    end
+    if (nil == opts["source-registry"]) then
+      error("make-subscription-registry: :source-registry is required")
+    else
+    end
+    return {subscriptions = {}, index = {}, ["event-registry"] = opts["event-registry"], ["behavior-registry"] = opts["behavior-registry"], ["source-registry"] = opts["source-registry"]}
+  end
+  local function index_add_21(registry, subscription)
     local source = subscription["source-selector"]
     local event = subscription["event-selector"]
     local behavior = subscription.behavior
-    if (nil == subscriptions_index[source]) then
-      subscriptions_index[source] = {}
+    if (nil == registry.index[source]) then
+      registry.index[source] = {}
     else
     end
-    if (nil == subscriptions_index[source][event]) then
-      subscriptions_index[source][event] = hash_set()
+    if (nil == registry.index[source][event]) then
+      registry.index[source][event] = hash_set()
     else
     end
-    subscriptions_index[source][event] = conj(subscriptions_index[source][event], behavior)
+    registry.index[source][event] = conj(registry.index[source][event], behavior)
     return nil
   end
-  local function index_remove_21(subscription)
+  local function index_remove_21(registry, subscription)
     local source = subscription["source-selector"]
     local event = subscription["event-selector"]
     local behavior = subscription.behavior
     local behavior_set
     do
-      local t_108_ = subscriptions_index
-      if (nil ~= t_108_) then
-        t_108_ = t_108_[source]
+      local t_109_ = registry.index
+      if (nil ~= t_109_) then
+        t_109_ = t_109_[source]
       else
       end
-      if (nil ~= t_108_) then
-        t_108_ = t_108_[event]
+      if (nil ~= t_109_) then
+        t_109_ = t_109_[event]
       else
       end
-      behavior_set = t_108_
+      behavior_set = t_109_
     end
     if behavior_set then
-      subscriptions_index[source][event] = disj(behavior_set, behavior)
+      registry.index[source][event] = disj(behavior_set, behavior)
       return nil
     else
       return nil
@@ -910,71 +928,67 @@ package.preload["lib.subscription-registry"] = package.preload["lib.subscription
   end
   local function validate_required_field_21(name, opts, field)
     if (nil == opts[field]) then
-      return error(("define-subscription " .. tostring(name) .. ": missing required field " .. tostring(field)))
+      return error(("define-subscription! " .. tostring(name) .. ": missing required field " .. tostring(field)))
     else
       return nil
     end
   end
-  local function validate_subscription_21(name, opts)
+  local function validate_subscription_21(registry, name, opts)
     validate_required_field_21(name, opts, "description")
     validate_required_field_21(name, opts, "behavior")
     validate_required_field_21(name, opts, "event-selector")
     validate_required_field_21(name, opts, "source-selector")
-    if (nil ~= subscriptions_register[name]) then
+    if (nil ~= registry.subscriptions[name]) then
       error(("Subscription already defined: " .. tostring(name)))
     else
     end
-    do
-      local _let_114_ = require("behaviors")
-      local behavior_registry = _let_114_["behavior-registry"]
-      if not behavior_defined_3f(behavior_registry, opts.behavior) then
-        error(("define-subscription " .. tostring(name) .. ": behavior not found: " .. tostring(opts.behavior)))
-      else
-      end
-    end
-    if not source_instance_exists_3f(source_registry, opts["source-selector"]) then
-      error(("define-subscription " .. tostring(name) .. ": source instance not found: " .. tostring(opts["source-selector"])))
+    if not behavior_defined_3f(registry["behavior-registry"], opts.behavior) then
+      error(("define-subscription! " .. tostring(name) .. ": behavior not found: " .. tostring(opts.behavior)))
     else
     end
-    if not valid_event_selector_3f(event_registry, opts["event-selector"]) then
-      return error(("define-subscription " .. tostring(name) .. ": invalid event-selector: " .. tostring(opts["event-selector"])))
+    if not source_instance_exists_3f(registry["source-registry"], opts["source-selector"]) then
+      error(("define-subscription! " .. tostring(name) .. ": source instance not found: " .. tostring(opts["source-selector"])))
+    else
+    end
+    if not valid_event_selector_3f(registry["event-registry"], opts["event-selector"]) then
+      return error(("define-subscription! " .. tostring(name) .. ": invalid event-selector: " .. tostring(opts["event-selector"])))
     else
       return nil
     end
   end
-  local function define_subscription(name, opts)
-    validate_subscription_21(name, opts)
+  local function define_subscription_21(registry, name, opts)
+    validate_subscription_21(registry, name, opts)
     local subscription = {name = name, description = opts.description, behavior = opts.behavior, ["event-selector"] = opts["event-selector"], ["source-selector"] = opts["source-selector"], ["require-tags"] = (opts["require-tags"] or {}), ["exclude-tags"] = (opts["exclude-tags"] or {})}
-    subscriptions_register[name] = subscription
-    index_add_21(subscription)
+    registry.subscriptions[name] = subscription
+    index_add_21(registry, subscription)
     return print(("[INFO] Defined subscription: " .. tostring(name)))
   end
-  local function remove_subscription(name)
-    local subscription = subscriptions_register[name]
+  local function remove_subscription_21(registry, name)
+    local subscription = registry.subscriptions[name]
     if (nil == subscription) then
       error(("Subscription not found: " .. tostring(name)))
     else
     end
-    index_remove_21(subscription)
-    subscriptions_register[name] = nil
+    index_remove_21(registry, subscription)
+    registry.subscriptions[name] = nil
     return print(("[INFO] Removed subscription: " .. tostring(name)))
   end
-  local function get_subscription(name)
-    return subscriptions_register[name]
+  local function get_subscription(registry, name)
+    return registry.subscriptions[name]
   end
-  local function list_subscriptions()
+  local function list_subscriptions(registry)
     local names = {}
-    for name, _ in pairs(subscriptions_register) do
+    for name, _ in pairs(registry.subscriptions) do
       table.insert(names, name)
     end
     return names
   end
-  local function subscription_defined_3f(name)
-    return (nil ~= subscriptions_register[name])
+  local function subscription_defined_3f(registry, name)
+    return (nil ~= registry.subscriptions[name])
   end
-  local function get_subscribed_behaviors(source, event_name)
-    local event_selectors = conj(ancestors(event_registry.hierarchy, event_name), event_name)
-    local source_subs = (subscriptions_index[source] or {})
+  local function get_subscribed_behaviors(registry, source, event_name)
+    local event_selectors = conj(ancestors(registry["event-registry"].hierarchy, event_name), event_name)
+    local source_subs = (registry.index[source] or {})
     local all_behavior_names
     do
       local result = hash_set()
@@ -985,35 +999,35 @@ package.preload["lib.subscription-registry"] = package.preload["lib.subscription
     end
     return seq(all_behavior_names)
   end
-  return {["subscriptions-register"] = subscriptions_register, ["define-subscription"] = define_subscription, ["remove-subscription"] = remove_subscription, ["get-subscription"] = get_subscription, ["list-subscriptions"] = list_subscriptions, ["subscription-defined?"] = subscription_defined_3f, ["get-subscribed-behaviors"] = get_subscribed_behaviors}
+  return {["make-subscription-registry"] = make_subscription_registry, ["define-subscription!"] = define_subscription_21, ["remove-subscription!"] = remove_subscription_21, ["get-subscription"] = get_subscription, ["list-subscriptions"] = list_subscriptions, ["subscription-defined?"] = subscription_defined_3f, ["get-subscribed-behaviors"] = get_subscribed_behaviors}
 end
 require("subscriptions")
 package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or function(...)
-  local _local_120_ = require("lib.cljlib-shim")
-  local mapv = _local_120_.mapv
-  local filter = _local_120_.filter
-  local seq = _local_120_.seq
-  local _local_121_ = require("events")
-  local event_registry = _local_121_["event-registry"]
-  local _local_122_ = require("lib.event-registry")
-  local add_event_handler_21 = _local_122_["add-event-handler!"]
-  local _local_123_ = require("lib.behavior-registry")
-  local behavior_responds_to_3f = _local_123_["behavior-responds-to?"]
-  local get_behavior = _local_123_["get-behavior"]
-  local _local_124_ = require("lib.subscription-registry")
-  local get_subscribed_behaviors = _local_124_["get-subscribed-behaviors"]
-  local _local_125_ = require("event_sources")
-  local source_registry = _local_125_["source-registry"]
-  local _local_126_ = require("lib.source-registry")
-  local source_instance_exists_3f = _local_126_["source-instance-exists?"]
-  local function get_behaviors_for_event(behavior_registry, event)
+  local _local_123_ = require("lib.cljlib-shim")
+  local mapv = _local_123_.mapv
+  local filter = _local_123_.filter
+  local seq = _local_123_.seq
+  local _local_124_ = require("events")
+  local event_registry = _local_124_["event-registry"]
+  local _local_125_ = require("lib.event-registry")
+  local add_event_handler_21 = _local_125_["add-event-handler!"]
+  local _local_126_ = require("lib.behavior-registry")
+  local behavior_responds_to_3f = _local_126_["behavior-responds-to?"]
+  local get_behavior = _local_126_["get-behavior"]
+  local _local_127_ = require("lib.subscription-registry")
+  local get_subscribed_behaviors = _local_127_["get-subscribed-behaviors"]
+  local _local_128_ = require("event_sources")
+  local source_registry = _local_128_["source-registry"]
+  local _local_129_ = require("lib.source-registry")
+  local source_instance_exists_3f = _local_129_["source-instance-exists?"]
+  local function get_behaviors_for_event(behavior_registry, subscription_registry, event)
     if not source_instance_exists_3f(source_registry, event["event-source"]) then
       print(("[WARN] get-behaviors-for-event: unknown source instance '" .. tostring(event["event-source"]) .. "'"))
     else
     end
-    local behavior_names = (get_subscribed_behaviors(event["event-source"], event["event-name"]) or {})
+    local behavior_names = (get_subscribed_behaviors(subscription_registry, event["event-source"], event["event-name"]) or {})
     local valid_names
-    local function _128_(name)
+    local function _131_(name)
       local responds_3f = behavior_responds_to_3f(behavior_registry, name, event["event-name"])
       if not responds_3f then
         print(("[ERROR] get-behaviors-for-event: behavior '" .. tostring(name) .. "' does not respond to event '" .. tostring(event["event-name"]) .. "'"))
@@ -1021,8 +1035,8 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
       end
       return responds_3f
     end
-    valid_names = filter(_128_, behavior_names)
-    local function _130_(name)
+    valid_names = filter(_131_, behavior_names)
+    local function _133_(name)
       local behavior = get_behavior(behavior_registry, name)
       if (nil == behavior) then
         print(("[ERROR] get-behaviors-for-event: behavior '" .. tostring(name) .. "' not found in registry"))
@@ -1030,12 +1044,14 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
       end
       return behavior
     end
-    return mapv(_130_, (seq(valid_names) or {}))
+    return mapv(_133_, (seq(valid_names) or {}))
   end
-  local function _132_(event)
-    local _let_133_ = require("behaviors")
-    local behavior_registry = _let_133_["behavior-registry"]
-    local bs = get_behaviors_for_event(behavior_registry, event)
+  local function _135_(event)
+    local _let_136_ = require("behaviors")
+    local behavior_registry = _let_136_["behavior-registry"]
+    local _let_137_ = require("subscriptions")
+    local subscription_registry = _let_137_["subscription-registry"]
+    local bs = get_behaviors_for_event(behavior_registry, subscription_registry, event)
     for _, behavior in pairs(bs) do
       if behavior then
         behavior.fn(event)
@@ -1044,15 +1060,15 @@ package.preload["lib.dispatcher"] = package.preload["lib.dispatcher"] or functio
     end
     return nil
   end
-  add_event_handler_21(event_registry, "dispatcher/behavior-router", _132_)
-  local function _135_(event)
+  add_event_handler_21(event_registry, "dispatcher/behavior-router", _135_)
+  local function _139_(event)
     if _G["event-bus.debug-mode?"] then
       return print("got event", hs.inspect(event))
     else
       return nil
     end
   end
-  add_event_handler_21(event_registry, "dispatcher/debug-handler", _135_)
+  add_event_handler_21(event_registry, "dispatcher/debug-handler", _139_)
   return {}
 end
 require("lib.dispatcher")
@@ -1076,12 +1092,12 @@ package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or functio
       event_loop_timer:stop()
     else
     end
-    local function _139_()
+    local function _143_()
       while process_event_21(current_registry) do
       end
       return nil
     end
-    event_loop_timer = hs.timer.new(0.01, _139_)
+    event_loop_timer = hs.timer.new(0.01, _143_)
     event_loop_timer:start()
     return print("[INFO] Event loop started")
   end
@@ -1097,8 +1113,8 @@ package.preload["lib.event-loop"] = package.preload["lib.event-loop"] or functio
   end
   return {["process-event!"] = process_event_21, ["start-event-loop!"] = start_event_loop_21, ["stop-event-loop!"] = stop_event_loop_21}
 end
-local _local_141_ = require("lib.event-loop")
-local start_event_loop_21 = _local_141_["start-event-loop!"]
+local _local_145_ = require("lib.event-loop")
+local start_event_loop_21 = _local_145_["start-event-loop!"]
 start_event_loop_21(event_registry)
 notify.warn("Reload Succeeded")
 return {}
