@@ -20,19 +20,19 @@ The system should be:
 - *Debuggable* - can trace why something did or didn't trigger
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
-* Projects
-** PROJ Configuration as Data [5/16]
+* Projects [6/41]
+** PROJ Configuration as Data [6/18]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
-*** Milestone 1: Multiple Instances of the Same Source Type [2/2]
+*** DONE Milestone 1: Multiple Instances of the Same Source Type [2/2]
 User can create multiple instances of the same event-source type (e.g., two file-watchers watching different directories), each with its own config.
 
 **** DONE Separate event-source class/instance concepts               :refactor:
 
 **** DONE Event-sources can specify what they can emit :feature:
 
-*** Milestone 2: Serializable Config [3/6]
+*** NOW Milestone 2: Serializable Config [3/6]
 Entire automation config can be represented as a single data structure, serialized to a file, and loaded back.
 
 **** DONE Migrate registry/global APIs to datastructure/local APIs :architecture:
@@ -61,7 +61,7 @@ Entire automation config can be represented as a single data structure, serializ
      - Added strict validation (errors on missing behavior/source/event-selector)
      - Moved get-subscribed-behaviors from dispatcher to subscription-registry
 
-**** NOW Refactor rest of the code to use the event/behavior pattern :refactor:
+**** NEXT Refactor rest of the code to use the event/behavior pattern :refactor:
      - [ ] Migrate active-space-indicator.fnl (space/screen watchers → event sources, menubar update → behavior)
      - [ ] Migrate spoons.fnl (one-shot bootstrap, low value)
      - [ ] Migrate windows.fnl (command library → behaviors, mutable history state)
@@ -163,27 +163,18 @@ Enables modes, contexts, and conditional behavior.
 ** PROJ Expand Configuration Options [0/10]
 Users can automate based on more system events.
 
-*** LATER [#A] Create WiFi event source                               :feature:
-    - Emit events on WiFi network change
-
-*** LATER [#A] Create USB event source                                :feature:
-    - Emit events on USB device attach/detach
-
-*** LATER [#A] Create App event source                                :feature:
-    - Emit events on app launch/quit/activate/deactivate/hidden
-
-*** LATER [#A] Create Window event source                             :feature:
-    - Emit events on window create/destroy/focus/unfocus/move/resize
-
-*** LATER [#B] Create System event source                             :feature:
-    - Emit events on wake/sleep/screens-changed/session-lock
-
 *** NEXT Create Hotkey event source :feature:
     - Emit events on hotkey press
     - Blocking dependency for migrating: config, windows, slack, chrome, multimedia, emacs, app-switcher
     - Also need app-aware variant (hotkeys active only when specific app is frontmost)
 
-*** NOW Create Screen event source :feature:
+*** NEXT Create Window event source :feature:
+    - Emit events on window create/destroy/focus/unfocus/move/resize
+
+*** NEXT Create App event source :feature:
+    - Emit events on app launch/quit/activate/deactivate/hidden
+
+*** NEXT Create Screen event source :feature:
     - Emit events on display add/remove/layout-change
     - Needed for active-space-indicator migration
 
@@ -191,17 +182,26 @@ Users can automate based on more system events.
     - Emit events on space/desktop change
     - Needed for active-space-indicator migration
 
-*** LATER [#C] Create Battery event source                            :feature:
+*** LATER [#C] Create WiFi event source :feature:
+    - Emit events on WiFi network change
+
+*** LATER [#C] Create USB event source :feature:
+    - Emit events on USB device attach/detach
+
+*** LATER [#C] Create System event source :feature:
+    - Emit events on wake/sleep/screens-changed/session-lock
+
+*** LATER [#C] Create Battery event source :feature:
     - Emit events on battery level/charging state change
 
 *** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
 
-* Chores
-*** LATER [#C] cliInstall doesn't work due to privileges              :tooling:
+* Chores [0/3]
+*** LATER [#C] cliInstall doesn't work due to privileges :tooling:
     - For now linked manually
     - Need to investigate proper permission handling for hs.ipc.cliInstall
 
-*** LATER [#C] Proper shortcut and configs for expose                 :feature:
+*** LATER [#C] Proper shortcut and configs for expose :feature:
     - Current expose shortcut is ctrl-cmd-e
     - Need configurable shortcuts
 
@@ -209,7 +209,7 @@ Users can automate based on more system events.
     - Related to GitHub issue #102
     - Thumbnail height calculation should be configurable/advisable
 
-* Archived
+* DONE Archived [7/7]
 ** DONE derive should check for cycles                                :feature:
     - Prevent A derives B derives A situations
     - Uses isa? to detect if parent already derives from child
