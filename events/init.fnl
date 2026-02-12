@@ -139,5 +139,13 @@
 (derive! event-hierarchy :file-watcher.events/file-change :event.kind.fs/file-change)
 
 
+;; --- Hotkey Events ---
+(define-event! event-registry
+               :hotkey.events/pressed
+               "Hotkey was pressed"
+               {:mods table? :key string?})
+(derive! event-hierarchy :hotkey.events/pressed :event.kind.hotkey/pressed)
+
+
 ;; Export registry (hierarchy accessible via event-registry.hierarchy)
 {: event-registry}

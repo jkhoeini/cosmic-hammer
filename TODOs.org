@@ -20,7 +20,7 @@ The system should be:
 - *Debuggable* - can trace why something did or didn't trigger
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
-* Projects [6/41]
+* Projects [7/42]
 ** PROJ Configuration as Data [6/18]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
@@ -146,7 +146,7 @@ Full interactive UI with controls, SQLite persistence, event tracing.
 *** LATER [#C] Persist state into SQLite                              :tooling:
     - Save events, behaviors, subscriptions, hierarchy
 
-** PROJ Contextual Automation [0/3]
+** PROJ Contextual Automation [0/4]
 Users can make automations context-aware using tags and filtering.
 Enables modes, contexts, and conditional behavior.
 
@@ -160,13 +160,17 @@ Enables modes, contexts, and conditional behavior.
     - Builds on subscription data model from Configuration as Data project
     - Filter subscriptions based on event-source tags
 
-** PROJ Expand Configuration Options [0/10]
+*** LATER [#B] App-aware hotkeys via tags                               :feature:
+    - Hotkeys active only when specific app is frontmost
+    - Use tags + contextual filtering instead of hs.hotkey.modal
+    - Depends on: tag attachment, require-tags filtering, App event source
+
+** PROJ Expand Configuration Options [1/10]
 Users can automate based on more system events.
 
-*** NEXT Create Hotkey event source :feature:
+*** DONE Create Hotkey event source :feature:
     - Emit events on hotkey press
     - Blocking dependency for migrating: config, windows, slack, chrome, multimedia, emacs, app-switcher
-    - Also need app-aware variant (hotkeys active only when specific app is frontmost)
 
 *** NEXT Create Window event source :feature:
     - Emit events on window create/destroy/focus/unfocus/move/resize

@@ -5,6 +5,7 @@
 (local {: make-source-registry : add-source-type! : start-event-source!} (require :lib.source-registry))
 (local {: event-registry} (require :events))
 (local {: file-watcher-source-type} (require :event_sources.file-watcher))
+(local {: hotkey-source-type} (require :event_sources.hotkey))
 
 
 ;; Create source registry
@@ -13,6 +14,7 @@
 
 ;; Register source types
 (add-source-type! source-registry file-watcher-source-type)
+(add-source-type! source-registry hotkey-source-type)
 
 
 ;; Create source instances
