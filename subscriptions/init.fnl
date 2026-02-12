@@ -27,4 +27,11 @@
   :source-selector :event-source.file-watcher/config-dir
   :event-selector :event.kind.fs/file-change})
 
+(define-subscription! subscription-registry
+ :sub/toggle-expose-on-hotkey
+ {:description "Toggle Expose when ctrl+cmd+e is pressed"
+  :behavior :expose.behaviors/toggle-expose
+  :source-selector :event-source.hotkey/ctrl+cmd+e
+  :event-selector :event.kind.hotkey/pressed})
+
 {: subscription-registry}

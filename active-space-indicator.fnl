@@ -41,8 +41,4 @@
 (local screen-watcher (hs.screen.watcher.new handle-space-switch))
 (: screen-watcher :start)
 
-;; TODO proper shortcut and configs
-(local expose (hs.expose.new))
-(hs.hotkey.bind :ctrl-cmd :e :Expose (fn [] (expose:toggleShow)))
-
 {}

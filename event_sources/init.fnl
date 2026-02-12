@@ -24,4 +24,10 @@
                      {:path hs.configdir})
 
 
+(start-event-source! source-registry
+                     :event-source.hotkey/ctrl+cmd+e
+                     :event-source.type/hotkey
+                     {:mods [:ctrl :cmd] :key :e})
+
+
 {: source-registry}
