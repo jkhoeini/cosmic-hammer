@@ -4,15 +4,17 @@
 #+TAGS: feature refactor doc architecture perf tooling
 
 * Vision
-A data-oriented configuration system for Hammerspoon automation.
+*Sheaf* — a data-oriented configuration system for Hammerspoon automation.
 
-Users configure their automation using clear, composable concepts:
-- *Event Sources* - things that emit events (file watchers, app monitors, USB listeners)
-- *Events* - named occurrences with structured data
-- *Behaviors* - named handlers that respond to events
-- *Subscriptions* - connections between sources, events, and behaviors with filtering
-- *Tags* - contextual labels for filtering (:work, :personal, :quiet-hours)
-- *Components* - higher-level bundles of config+state+sources+behaviors
+Users configure their automation using orthogonal, composable concepts:
+- *Events* - facts about something that happened, organized in a kind hierarchy
+- *Commands* - named actions that can be invoked on a component
+- *Components* - context-blind units bundling sources + commands + state + config
+- *Behaviors* - component-blind rules mapping events to commands via a handler function
+- *Tags* - contextual labels attached to component instances, inherited through instance tree
+- *Subscriptions* - the only place components, behaviors, and tags meet; the wiring that creates a system
+
+See DESIGN.md for the full design reference.
 
 The system should be:
 - *Declarative* - configuration as data, not imperative code
@@ -20,8 +22,8 @@ The system should be:
 - *Debuggable* - can trace why something did or didn't trigger
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
-* Projects [7/42]
-** PROJ Configuration as Data [6/18]
+* Projects [8/43]
+** PROJ Configuration as Data [6/19]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
@@ -103,14 +105,19 @@ Subscriptions can match events using flexible criteria - multiple event types, h
      - Event-kinds define schemas
      - Child events inherit and extend parent schemas
 
-*** Milestone 4: Components as First-Class Units [0/2]
-User can define a "component" that bundles sources, behaviors, subscriptions, config, and state into a reusable unit.
+*** Milestone 4: Components & Commands [0/3]
+User can define components (context-blind units of sources + commands + state + config) and commands (named invocable actions). Behaviors and subscriptions live outside components.
+
+**** LATER [#B] Define command concept                                 :architecture:
+     - Named action with schema and implementation
+     - Owned by components
+     - Invoked by behaviors via send-cmd!
 
 **** LATER [#C] Define component concept                              :architecture:
-     - Has config and state
-     - Can be queried for config/state
-     - Has event-sources and commands
-     - event-source+config+state+commands+presentation
+     - Context-blind, reusable unit
+     - Bundles: sources (emit events), commands (receive invocations), state, config
+     - Does NOT contain behaviors or subscriptions
+     - Components don't know about each other
 
 **** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:
      - Define execution order when multiple behaviors match
@@ -125,9 +132,10 @@ System is performant and has comprehensive documentation for users.
 
 **** LATER [#C] Create a tutorial-style doc for the event/behavior pattern :doc:
 
-**** LATER [#C] Create doc explaining 4 orthogonal concepts           :doc:
-     - Event-source, Event, Behavior, Subscription
+**** LATER [#C] Create doc explaining 6 orthogonal concepts           :doc:
+     - Event, Command, Component, Behavior, Tag, Subscription
      - How they are independent but compose together
+     - See DESIGN.md for current reference
 
 ** PROJ Visibility & Debugging [0/6]
 Users can see what's configured, what's happening, and why.
@@ -200,14 +208,13 @@ Users can automate based on more system events.
 
 *** LATER [#C] Add user commands, key mappings, etc on top of event/behavior system :architecture:
 
-* Chores [0/3]
+* Chores [1/3]
 *** LATER [#C] cliInstall doesn't work due to privileges :tooling:
     - For now linked manually
     - Need to investigate proper permission handling for hs.ipc.cliInstall
 
-*** LATER [#C] Proper shortcut and configs for expose :feature:
-    - Current expose shortcut is ctrl-cmd-e
-    - Need configurable shortcuts
+*** DONE Proper shortcut and configs for expose :feature:
+    - Migrated to event architecture: hotkey event source + toggle-expose behavior + subscription
 
 *** LATER [#C] Make thumbnail height advisable when #102 lands        :feature:
     - Related to GitHub issue #102
