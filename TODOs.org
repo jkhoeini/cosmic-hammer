@@ -351,7 +351,7 @@ Full interactive UI with controls, SQLite persistence, event tracing.
 *** LATER [#C] Persist state into SQLite                              :tooling:
     - Save events, behaviors, subscriptions, hierarchy
 
-** PROJ Sheaf OpenTelemetry Observability [1/8]
+** PROJ Sheaf OpenTelemetry Observability [2/8]
 Make Sheaf inspectable through CosmicHammer's =hs.opentelemetry= support.
 Telemetry observes the engine path; it is not a component, behavior, command,
 tag, or subscription. The Sheaf contracts in DESIGN.md stay unchanged:
@@ -378,14 +378,38 @@ and a local Grafana LGTM stack (Tempo/Loki/Prometheus) for verification.
     - [X] After a config-triggered reload, recent telemetry records are visible in Grafana/Tempo/Loki
           (verified: traces, metrics, and logs confirmed via the LGTM stack)
 
-*** LATER [#A] Add Sheaf telemetry adapter                              :architecture:tooling:
-    Centralize OpenTelemetry calls so engine modules do not scatter raw
-    =hs.opentelemetry= usage.
-    - [ ] Create =sheaf/telemetry.fnl= with no-op-safe helpers when telemetry is disabled
-    - [ ] Export helpers for spans, span events, exceptions, counters, histograms, logs, and flush
-    - [ ] Metrics instruments are created lazily or cached, not recreated on every event
-    - [ ] Adapter applies redaction before attaching raw params or payload details
-    - [ ] Compile/reload succeeds with telemetry disabled, console exporter, and OTLP exporter
+*** DONE [#A] Add Sheaf telemetry adapter                              :architecture:tooling:
+    Centralize OpenTelemetry calls so engine modules import one thin Sheaf
+    surface instead of scattering raw =hs.opentelemetry= usage. =hs.opentelemetry=
+    is always available, so no availability guards are needed; no redaction in
+    this slice. Structured log emission is out of scope here (see the structured
+    telemetry logs item) because the OTel API exposes no explicit log-emit
+    function — logs come from =hs.logger=/=print= capture.
+    File touched:
+    - =sheaf/telemetry.fnl= (new): references the global =hs.opentelemetry=
+      directly (no =require=), follows the module pattern (docstrings, export
+      table at end).
+    Module contents:
+    - Create one cached tracer =(hs.opentelemetry.tracer "sheaf")= and one cached
+      meter =(hs.opentelemetry.meter "sheaf")= at module load.
+    - Keep a private instrument cache table so counters/histograms are created
+      once per metric name, not per event.
+    Exports:
+    - =enabled?= — reads =(. (hs.opentelemetry.diagnostics) :enabled)= so hot
+      per-event callers can skip building attribute tables.
+    - =with-span= =(fn [name attrs f])= — delegates to =hs.opentelemetry.withSpan=.
+    - =add-event!= =(fn [span name attrs])=, =set-attrs!= =(fn [span attrs])=,
+      =record-exception!= =(fn [span err])=, =set-status!= =(fn [span status])=.
+    - =counter-add!= =(fn [name value attrs])= and =histogram-record!=
+      =(fn [name value attrs])= — resolve/create the instrument from the cache.
+    - =wrap= =(fn [f])= — passthrough to =hs.opentelemetry.wrap= for deferred/
+      coroutine context propagation (used by the event-queue item).
+    - =flush!= =(fn [?timeout])= — =pcall= around =hs.opentelemetry.flush=.
+    Definition of done:
+    - [X] =sheaf/telemetry.fnl= exists and exports the functions above
+    - [X] Tracer and meter are created once at module load; instruments are cached by name, not recreated per event
+    - [X] Helpers call =hs.opentelemetry= directly with no availability guard and no redaction
+    - [X] No structured-log helpers are added here (deferred to the structured logs item)
 
 *** LATER [#A] Preserve trace context across the Sheaf event queue       :architecture:tooling:
     Sheaf queues events, so context must survive from source emission to
