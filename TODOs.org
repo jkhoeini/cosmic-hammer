@@ -351,7 +351,7 @@ Full interactive UI with controls, SQLite persistence, event tracing.
 *** LATER [#C] Persist state into SQLite                              :tooling:
     - Save events, behaviors, subscriptions, hierarchy
 
-** PROJ Sheaf OpenTelemetry Observability [0/8]
+** PROJ Sheaf OpenTelemetry Observability [1/8]
 Make Sheaf inspectable through CosmicHammer's =hs.opentelemetry= support.
 Telemetry observes the engine path; it is not a component, behavior, command,
 tag, or subscription. The Sheaf contracts in DESIGN.md stay unchanged:
@@ -361,7 +361,7 @@ select candidates, and commands own component state transitions.
 Depends on: CosmicHammer =hs.opentelemetry=, the Sheaf dispatcher/event-loop,
 and a local Grafana LGTM stack (Tempo/Loki/Prometheus) for verification.
 
-*** LATER [#A] Configure OTel and flush before reload                   :tooling:
+*** DONE [#A] Configure OTel and flush before reload                    :tooling:
     Check in the local CosmicHammer OTel configuration and make the reload
     lifecycle flush telemetry before calling =hs.reload()=. No REPL helpers,
     redactor, persistence wrapper, or helper module in this slice.
@@ -375,8 +375,8 @@ and a local Grafana LGTM stack (Tempo/Loki/Prometheus) for verification.
     - [X] Reload timer callback calls =hs.opentelemetry.flush(2)= before =hs.reload()=
     - [X] Flush failure or timeout cannot prevent =hs.reload()= from running (flush wrapped in =pcall=)
     - [X] Existing reload debounce behavior remains unchanged from the caller's perspective
-    - [ ] After a config-triggered reload, recent telemetry records are visible in Grafana/Tempo/Loki
-          (not verified: requires a running local OTLP collector / Grafana LGTM stack)
+    - [X] After a config-triggered reload, recent telemetry records are visible in Grafana/Tempo/Loki
+          (verified: traces, metrics, and logs confirmed via the LGTM stack)
 
 *** LATER [#A] Add Sheaf telemetry adapter                              :architecture:tooling:
     Centralize OpenTelemetry calls so engine modules do not scatter raw
