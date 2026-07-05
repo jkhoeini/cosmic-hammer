@@ -10,7 +10,12 @@
    "Hammerspoon config reloader with debounce timer"
    {:traits [:trait/has-delayed-timer]
     :start-fn (fn [config]
-                {:timer (hs.timer.delayed.new 0.5 hs.reload)
+                ;; Flush telemetry before reloading. pcall guards the flush so a
+                ;; flush failure or timeout can never prevent hs.reload from running.
+                {:timer (hs.timer.delayed.new 0.5
+                                              (fn []
+                                                (pcall hs.opentelemetry.flush 2)
+                                                (hs.reload)))
                  :reloading? false})
     :stop-fn (fn [state]
                (state.timer:stop))}))

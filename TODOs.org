@@ -22,7 +22,7 @@ The system should be:
 - *Debuggable* - can trace why something did or didn't trigger
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
-* Projects [34/132]
+* Projects [34/141]
 ** PROJ Configuration as Data [12/30]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
@@ -350,6 +350,100 @@ Full interactive UI with controls, SQLite persistence, event tracing.
 
 *** LATER [#C] Persist state into SQLite                              :tooling:
     - Save events, behaviors, subscriptions, hierarchy
+
+** PROJ Sheaf OpenTelemetry Observability [0/8]
+Make Sheaf inspectable through CosmicHammer's =hs.opentelemetry= support.
+Telemetry observes the engine path; it is not a component, behavior, command,
+tag, or subscription. The Sheaf contracts in DESIGN.md stay unchanged:
+components remain context-blind, subscriptions remain wiring-only, behaviors
+select candidates, and commands own component state transitions.
+
+Depends on: CosmicHammer =hs.opentelemetry=, the Sheaf dispatcher/event-loop,
+and a local Grafana LGTM stack (Tempo/Loki/Prometheus) for verification.
+
+*** LATER [#A] Configure OTel and flush before reload                   :tooling:
+    Check in the local CosmicHammer OTel configuration and make the reload
+    lifecycle flush telemetry before calling =hs.reload()=. No REPL helpers,
+    redactor, persistence wrapper, or helper module in this slice.
+    Files touched:
+    - =core.fnl=: configure =hs.opentelemetry= near the top of boot
+    - =components/reload-hammerspoon.fnl=: flush from the delayed reload timer before =hs.reload()=
+    - =commands/reload-hammerspoon.fnl=: no expected change; it should keep starting the debounce timer
+    Definition of done:
+    - [X] =core.fnl= calls =hs.opentelemetry.configure({...})= with checked-in endpoint/headers/config
+    - [X] Config includes =enabled=, =serviceName=, =exporter=, =protocol=, =endpoint=, =traces=, =logs=, =metrics=, =capturePrint=, =captureLogger=, =callbackSampleRates=, and =attributeLimits=
+    - [X] Reload timer callback calls =hs.opentelemetry.flush(2)= before =hs.reload()=
+    - [X] Flush failure or timeout cannot prevent =hs.reload()= from running (flush wrapped in =pcall=)
+    - [X] Existing reload debounce behavior remains unchanged from the caller's perspective
+    - [ ] After a config-triggered reload, recent telemetry records are visible in Grafana/Tempo/Loki
+          (not verified: requires a running local OTLP collector / Grafana LGTM stack)
+
+*** LATER [#A] Add Sheaf telemetry adapter                              :architecture:tooling:
+    Centralize OpenTelemetry calls so engine modules do not scatter raw
+    =hs.opentelemetry= usage.
+    - [ ] Create =sheaf/telemetry.fnl= with no-op-safe helpers when telemetry is disabled
+    - [ ] Export helpers for spans, span events, exceptions, counters, histograms, logs, and flush
+    - [ ] Metrics instruments are created lazily or cached, not recreated on every event
+    - [ ] Adapter applies redaction before attaching raw params or payload details
+    - [ ] Compile/reload succeeds with telemetry disabled, console exporter, and OTLP exporter
+
+*** LATER [#A] Preserve trace context across the Sheaf event queue       :architecture:tooling:
+    Sheaf queues events, so context must survive from source emission to
+    event-loop processing.
+    - [ ] =dispatch-event!= records enqueue timestamp and propagation context when available
+    - [ ] =process-event!= runs inside a =sheaf.event.process= span
+    - [ ] Event span includes =cosmichammer.sheaf.event.name= and =cosmichammer.sheaf.event.source=
+    - [ ] Event-loop handler errors set span status/exception and still do not kill the loop
+    - [ ] Tempo trace for a focused-window event shows the queued processing span
+
+*** LATER [#A] Trace dispatcher routing decisions                        :tooling:
+    The trace should explain why a behavior did or did not run without changing
+    behavior signatures.
+    - [ ] Matching subscription records include the subscription name, source tag, target tag, and input tag
+    - [ ] Dispatcher creates spans/events for subscription matching and behavior invocation
+    - [ ] Candidate resolution records candidate counts per command alias
+    - [ ] Input shape resolution records matched/missing input aliases without dumping raw state
+    - [ ] Existing behavior function signature remains =(fn [event candidates send-cmd inputs])=
+    - [ ] Tempo query can find the behavior invoked by a window-border focus event
+
+*** LATER [#A] Trace command execution outcomes                          :tooling:
+    Commands remain ordinary Sheaf commands; tracing wraps =send-cmd= only.
+    - [ ] =make-send-cmd= creates a =sheaf.command.execute= span for every command attempt
+    - [ ] Command span records alias, command name, component instance, required trait count, and outcome
+    - [ ] Outcomes include =ok=, =nil-state=, =trait-mismatch=, =missing-command=, =missing-instance=, and =error=
+    - [ ] Command errors record exceptions and preserve existing event-loop error isolation
+    - [ ] Returned state is captured exactly as before; command signatures do not change
+    - [ ] Window-border focus trace includes =window-border.commands/show-active-border=
+
+*** LATER [#B] Add bounded Sheaf metrics                                 :perf:tooling:
+    Metrics answer aggregate health/performance questions. Detailed values belong
+    on traces/logs unless a high-cardinality metric is explicitly temporary.
+    - [ ] Add counters for events enqueued/processed, subscriptions matched, behaviors invoked, commands executed, and commands skipped
+    - [ ] Add histograms for event processing duration and command duration
+    - [ ] Default metric labels are bounded: event name, behavior name, command name, and outcome
+    - [ ] Window title, URL, file path, raw params, and window id are not default metric labels
+    - [ ] Temporary high-cardinality metric labels are documented as local-only and removed after debugging
+    - [ ] Prometheus query shows Sheaf event/command rates and command latency after exercising the config
+
+*** LATER [#B] Replace engine prints with structured telemetry logs       :tooling:
+    Use print capture as a local bridge, but make structured logs the target
+    state for Sheaf diagnostics.
+    - [ ] Adapter exposes =log-debug!=, =log-info!=, =log-warn!=, and =log-error!= helpers
+    - [ ] Dispatcher warnings/errors emit structured logs with event, behavior, command, component, and outcome attrs
+    - [ ] Registry validation warnings emit structured logs with registry kind and offending name/selector
+    - [ ] Lifecycle =[INFO]= prints are migrated or duplicated as structured logs
+    - [ ] =capturePrint= remains a local opt-in bridge, not the only source of diagnostics
+    - [ ] Loki query can filter Sheaf diagnostics by event, behavior, command, component, or outcome
+
+*** LATER [#B] Validate end-to-end with Grafana and Tempo MCPs            :tooling:
+    Prove the data is queryable through the same tools used for debugging.
+    - [ ] Tempo attribute discovery includes =resource.service.name= and =cosmichammer.sheaf.*= span attributes
+    - [ ] Tempo service values include =cosmic-hammer-config= or the configured local service name
+    - [ ] TraceQL can find failed/skipped commands via =cosmichammer.sheaf.outcome != "ok"=
+    - [ ] TraceQL can find a window-border command trace by command name
+    - [ ] Prometheus can query Sheaf counters and histograms
+    - [ ] Loki can query structured Sheaf logs and captured print output when enabled
+    - [ ] Calling =hs.opentelemetry.flush(5)= before stopping the collector preserves recent records
 
 ** PROJ Contextual Automation [1/4]
 Users can make automations context-aware using tags and filtering.
