@@ -19,15 +19,12 @@
    "URL routing configuration: browsers, fallback action, and ordered rules"
    {:traits [:trait/has-url-routing-rules]
     :start-fn (fn [config]
-                {:browsers [{:id :orion    :bundle-id "com.kagi.kagimacOS"}
+                {:browsers [{:id :zen      :bundle-id "app.zen-browser.zen"}
                             {:id :firefox  :bundle-id "org.mozilla.firefox"}
-                            {:id :arc      :bundle-id "company.thebrowser.Browser"}
                             {:id :chrome   :bundle-id "com.google.Chrome"}
                             {:id :safari   :bundle-id "com.apple.Safari"}
                             {:id :brave    :bundle-id "com.brave.Browser"}
                             {:id :edge     :bundle-id "com.microsoft.edgemac"}
-                            {:id :zen      :bundle-id "app.zen-browser.zen"}
-                            {:id :dia      :bundle-id "company.thebrowser.dia"}
                             {:id :figma    :bundle-id "com.figma.Desktop"}
                             {:id :helium   :bundle-id "net.imput.helium"}
                             {:id :ora      :bundle-id "com.orabrowser.app"}
