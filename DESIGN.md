@@ -136,11 +136,12 @@ subscription's input tag.
 
 The handler receives the event, a set of candidate target components
 (resolved by the dispatcher from the subscription's target tag, grouped
-by command alias), a send-cmd function, and optional input state keyed
-by input alias. The behavior selects which candidates to act on and
-sends commands to them. For simple 1:1 cases it picks the first
-candidate. For fan-out, it iterates. For context-dependent selection,
-it inspects event data, candidate state, or shaped inputs.
+by command alias), a send-cmd function, optional input state keyed by
+input alias, and optional per-wiring subscription params. The behavior
+selects which candidates to act on and sends commands to them. For simple
+1:1 cases it picks the first candidate. For fan-out, it iterates. For
+context-dependent selection, it inspects event data, candidate state,
+shaped inputs, or subscription params.
 
 ### Tag
 
@@ -159,13 +160,15 @@ Uses tags to select source, target, and optional input sets.
 - **target** — tag selecting which components are command candidates
 - **input** — optional tag selecting components whose state can satisfy
   the behavior's input shapes
+- **params** — optional static choices supplied to this behavior invocation
+  by this specific wiring
 
 At event-time, the dispatcher:
 1. Matches the event's source component against subscriptions by source tag
 2. Resolves all components with the target tag as candidates
 3. Groups candidates by command alias (filtered by `:requires-traits`)
 4. Resolves input components by input tag and filters them by shape
-5. Invokes the behavior with `(fn [event candidates send-cmd inputs] ...)`
+5. Invokes the behavior with `(fn [event candidates send-cmd inputs params] ...)`
 
 The dispatcher validates `:requires-traits` when the behavior calls
 `send-cmd`, validates behavior inputs by shape, and captures returned
@@ -195,7 +198,7 @@ is the composition of these values.
 ```
 Component A (tagged :src) emits Event via owned source
     │
-Subscription: source=:src, behavior=X, target=:tgt, input=:cfg
+Subscription: source=:src, behavior=X, target=:tgt, input=:cfg, params={...}
     │
 Dispatcher:
     │  1. Matches: A has tag :src → subscription fires
@@ -206,7 +209,7 @@ Dispatcher:
     │  5. Finds components tagged :cfg whose state conforms to input shapes
     │  6. Builds send-cmd (validates :requires-traits, captures state)
     │
-Behavior X: fn [event candidates send-cmd inputs]
+Behavior X: fn [event candidates send-cmd inputs params]
     │  (let [target (. candidates.update-menubar 1)]
     │    (send-cmd target :update-menubar {:active-spaces [1 3]}))
     │
@@ -234,14 +237,116 @@ The entire system is a value — inspectable, serializable, queryable.
 - Every concept is a simple, independent value
 - The system is the composition of these values
 
+## Principles
+
+The governing principles behind the atoms. P1–P4 are settled; P5 is
+directional — its shape is adopted, its mechanism is not. Decisions
+derived from these principles are recorded in `docs/adr/`; the
+vocabulary they produce lives in `CONTEXT.md`.
+
+### P1. The system is a knowledge graph: facts and inference rules
+
+Instances, state, tags, and occurred events are facts; behaviors are
+inference rules; subscriptions are the join patterns wiring rules to
+facts. Queryability, visualization, and datalog/persistence plans are
+consequences of this ontology, not bolted-on features.
+
+The graph has three strata (TBox/ABox/assertions, in RDF terms):
+
+1. **Definitions** — timeless vocabulary: events, traits, shapes,
+   commands, event-source types, component types, behaviors,
+   hierarchy derivations.
+2. **Instantiations** — configured occurrences: component instances,
+   event-source instances, subscriptions, tag attachments.
+3. **Runtime facts** — event occurrences, command sends, state
+   changes; produced by the interpreter, never authored.
+
+Corollary: never file a *choice* under *facts* or vice versa.
+Configuration belongs in the wiring (subscription params, instance
+config), not closed over in definitions or stored as component state;
+fast-changing state belongs in components, not in tags or wiring.
+
+### P2. Selection and contract are orthogonal
+
+A tag ascribes a role — 0..n instances, runtime-mutable. Traits and
+shapes carry the contract. This is a deliberate un-fusing of what
+Effect-TS fuses into `Context.Tag` (identity + interface), and it is
+what makes runtime re-wiring and fan-out possible. Identity is
+relational: an untagged instance has no role — the dispatcher resolves
+every role via tags, nothing else.
+
+Known debt: no totality guarantee. Nothing verifies a subscription's
+tags are ever provided or a selector has an emitter. Repaid at
+assembly time by P5, not at compile time by types.
+
+### P3. Behaviors are pure inference: coeffects in, effects out
+
+A behavior is semantically `(event, candidates, inputs, params) →
+commands`. Candidates, inputs, and params are **coeffects** — context
+the rule requires, declared and injected, never fetched. A sent
+command is a datum about a *requested* action; it does nothing by
+itself. Behaviors are unit-testable as pure functions; command streams
+are traceable, loggable, replayable.
+
+The two context mechanisms split along the fact/choice line (P1):
+inputs deliver shared, live, many-reader *facts* (component state,
+shape-checked, fresh per event); subscription params deliver
+per-wiring, static, one-reader *choices*. Commands are part of a
+behavior's **effect type** — declared in the definition, never
+parameterized from outside; runtime selection *among* the declared
+commands is ordinary behavior logic. (ADR-0002)
+
+### P4. Meaning lives in the interpreter
+
+Every layer is inert data plus a small interpreter: events ← dispatcher,
+command data ← executor, specs ← builders, (future) module maps ←
+assembler. Descriptions never execute themselves. This is what
+"everything is data" means operationally: malleability is the freedom
+to swap interpreters (trace, dry-run, replay, visualize) because the
+description layer never acts.
+
+Current interpreter choices, which are strategies rather than
+semantics: commands execute synchronously inside `send-cmd`; a
+behavior invocation never outlives its triggering event; async
+outcomes re-enter as new events, chaining invocations into
+*conversations* (ADR-0001, forced by Hammerspoon's C-boundary
+coroutine limitation).
+
+Corollary (the ratchet): any higher-level framework is a pure builder
+from spec-data to atom-data. Everything it generates must be
+hand-writable in today's atoms; if the builder can't express something
+as spec → atoms, an atom is missing — stop and reconsider the atoms.
+
+### P5. Modules provide definitions; layers configure instantiations (directional)
+
+The def/inst split of P1 implies two bundle mechanisms: **modules**
+contribute definitions (vocabulary), **layers** contribute
+instantiations (configuration). Both are static data — construction is
+already reified as component-type start-fns in the registry, so
+provides reference blueprints by name and cross-module refs are
+symbolic, resolved by an assembler (Integrant-style), not closures
+(Effect-Layer-style).
+
+Assembly merges provides and checks every require against the union —
+the system map becomes total-by-construction or fails at boot. This
+repays P2's totality debt. Mechanism undecided; shape adopted now: new
+specs carry provides/requires from day one.
+
 ## Open Questions
 
 - **System map structure** — what defines parent-child relationships
   in the component instance tree? Explicit nesting in the system map,
   or derived?
 
-- **Command execution model** — does `send-cmd!` execute synchronously?
-  Can behaviors chain commands?
+- **Module/layer mechanism** (P5) — what exactly is in a module map,
+  how are requires declared and checked, how do symbolic refs resolve?
+  Tags currently have no definition mechanism at all — a module
+  contributing a tag has nothing to register.
+
+- **Keymap foundation** — a tailor-made keymap component, or a generic
+  foundation (components + events + subscriptions) that layers
+  configure into doom-like behavior? (See TODOs.org, Doom-style
+  Keybinding Framework.)
 
 ## Inspirations
 

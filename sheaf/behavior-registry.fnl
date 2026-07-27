@@ -14,7 +14,7 @@
 ;;    :respond-to [:event.kind/something]
 ;;    :commands {:local-alias :namespace.commands/action}
 ;;    :inputs {:alias :shape/name}  ; optional - shaped state inputs
-;;    :fn (fn [event candidates send-cmd inputs] ...)}
+;;    :fn (fn [event candidates send-cmd inputs params] ...)}
 
 (local {: some} (require :lib.cljlib-shim))
 (local {: valid-event-selector?} (require :sheaf.event-registry))
@@ -51,8 +51,9 @@
      :respond-to  - list of event-names or event-kinds this behavior responds to (required)
      :commands    - map of {local-alias -> command-registry-name} (default {})
      :inputs      - map of {alias -> shape-name} for shaped state inputs (default {})
-     :fn          - (fn [event candidates send-cmd inputs] ...) - called when matching event occurs (required)
+     :fn          - (fn [event candidates send-cmd inputs params] ...) - called when matching event occurs (required)
                     inputs is nil when the behavior declares no :inputs or the subscription has no :input-tag
+                    params is nil when the matching subscription omits :params
    Returns: {:name :description :respond-to :commands :inputs :fn}"
   (when (= nil opts.name)
     (error "make-behavior: :name is required"))

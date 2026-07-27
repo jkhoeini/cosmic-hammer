@@ -80,7 +80,7 @@ events → traits → shapes → event_sources → components → commands → b
 
 Starting a component (`start-component!` in `components/init.fnl`) auto-creates its owned event-source instances and attaches its tags — there is no standalone source management.
 
-**Wiring is by tag.** Components are context-blind; subscriptions connect them. A subscription names a `:behavior`, a `:source-tag` (who emits), a `:target-tag` (command candidates), and an `:event-selector`. At event time the dispatcher resolves all target-tagged components as candidates (grouped by command alias, filtered by each command's `:requires-traits`), invokes the behavior `(fn [event candidates send-cmd])`, and captures the state each command returns back onto the target instance. (Behaviors may also declare shaped state `:inputs` — see `DESIGN.md`.)
+**Wiring is by tag.** Components are context-blind; subscriptions connect them. A subscription names a `:behavior`, a `:source-tag` (who emits), a `:target-tag` (command candidates), and an `:event-selector`, with optional `:input-tag` and per-wiring `:params`. At event time the dispatcher resolves all target-tagged components as candidates (grouped by command alias, filtered by each command's `:requires-traits`), invokes the behavior `(fn [event candidates send-cmd inputs params])`, and captures the state each command returns back onto the target instance. Lua ignores unused trailing arguments, so handlers may omit `inputs` and `params`. (Behavior `:inputs` are live shaped state; subscription `:params` are static choices — see `DESIGN.md`.)
 
 The `reload-hammerspoon` feature, end to end across the four files:
 

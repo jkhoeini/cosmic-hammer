@@ -86,7 +86,7 @@
 
 
 (fn dispatch-to-behavior [subscription-registry component-registry ?shape-registry
-                          event behavior-name target-tag input-tag]
+                          event behavior-name target-tag input-tag subscription-params]
   "Dispatch an event to a single behavior with resolved candidates, inputs, and send-cmd."
   (let [behavior-registry subscription-registry.behavior-registry
         command-registry behavior-registry.command-registry
@@ -122,7 +122,7 @@
                          (build-inputs behavior ?shape-registry component-registry
                                        tag-registry input-tag)
                          nil))]
-        ((. behavior :fn) event candidates send-cmd inputs)))))
+        ((. behavior :fn) event candidates send-cmd inputs subscription-params)))))
 
 
 (fn start-dispatcher! [subscription-registry component-registry ?shape-registry]
@@ -143,7 +143,7 @@
                               (dispatch-to-behavior subscription-registry component-registry
                                                     ?shape-registry
                                                     event sub-match.behavior sub-match.target-tag
-                                                    sub-match.input-tag)))))
+                                                    sub-match.input-tag sub-match.params)))))
 
     (add-event-handler! event-registry :dispatcher/debug-handler
                         (fn [event]

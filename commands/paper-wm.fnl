@@ -14,76 +14,38 @@
         : increment-space!
         : refresh-windows!} (require :paper-wm))
 
+(local direction-by-keyword
+  {:left Direction.LEFT
+   :right Direction.RIGHT
+   :up Direction.UP
+   :down Direction.DOWN
+   :width Direction.WIDTH
+   :height Direction.HEIGHT
+   :ascending Direction.ASCENDING
+   :descending Direction.DESCENDING})
+
 ;; ============================================================================
 ;; Focus navigation
 ;; ============================================================================
 
-(local focus-left-command
+(local focus-command
   (make-command
-   :paper-wm.commands/focus-left
-   "Focus the window to the left"
+   :paper-wm.commands/focus
+   "Focus the window in a direction"
    {:fn (fn [component params]
-          (focus-window Direction.LEFT)
-          nil)}))
-
-(local focus-right-command
-  (make-command
-   :paper-wm.commands/focus-right
-   "Focus the window to the right"
-   {:fn (fn [component params]
-          (focus-window Direction.RIGHT)
-          nil)}))
-
-(local focus-up-command
-  (make-command
-   :paper-wm.commands/focus-up
-   "Focus the window above"
-   {:fn (fn [component params]
-          (focus-window Direction.UP)
-          nil)}))
-
-(local focus-down-command
-  (make-command
-   :paper-wm.commands/focus-down
-   "Focus the window below"
-   {:fn (fn [component params]
-          (focus-window Direction.DOWN)
+          (focus-window (. direction-by-keyword params.direction))
           nil)}))
 
 ;; ============================================================================
 ;; Swap
 ;; ============================================================================
 
-(local swap-left-command
+(local swap-command
   (make-command
-   :paper-wm.commands/swap-left
-   "Swap the focused window with the one to the left"
+   :paper-wm.commands/swap
+   "Swap the focused window in a direction"
    {:fn (fn [component params]
-          (swap-windows! Direction.LEFT)
-          nil)}))
-
-(local swap-right-command
-  (make-command
-   :paper-wm.commands/swap-right
-   "Swap the focused window with the one to the right"
-   {:fn (fn [component params]
-          (swap-windows! Direction.RIGHT)
-          nil)}))
-
-(local swap-up-command
-  (make-command
-   :paper-wm.commands/swap-up
-   "Swap the focused window with the one above"
-   {:fn (fn [component params]
-          (swap-windows! Direction.UP)
-          nil)}))
-
-(local swap-down-command
-  (make-command
-   :paper-wm.commands/swap-down
-   "Swap the focused window with the one below"
-   {:fn (fn [component params]
-          (swap-windows! Direction.DOWN)
+          (swap-windows! (. direction-by-keyword params.direction))
           nil)}))
 
 ;; ============================================================================
@@ -106,36 +68,13 @@
           (set-window-full-width!)
           nil)}))
 
-(local cycle-width-up-command
+(local cycle-window-size-command
   (make-command
-   :paper-wm.commands/cycle-width-up
-   "Cycle the focused window width up"
+   :paper-wm.commands/cycle-window-size
+   "Cycle the focused window size"
    {:fn (fn [component params]
-          (cycle-window-size! Direction.WIDTH Direction.ASCENDING)
-          nil)}))
-
-(local cycle-width-down-command
-  (make-command
-   :paper-wm.commands/cycle-width-down
-   "Cycle the focused window width down"
-   {:fn (fn [component params]
-          (cycle-window-size! Direction.WIDTH Direction.DESCENDING)
-          nil)}))
-
-(local cycle-height-up-command
-  (make-command
-   :paper-wm.commands/cycle-height-up
-   "Cycle the focused window height up"
-   {:fn (fn [component params]
-          (cycle-window-size! Direction.HEIGHT Direction.ASCENDING)
-          nil)}))
-
-(local cycle-height-down-command
-  (make-command
-   :paper-wm.commands/cycle-height-down
-   "Cycle the focused window height down"
-   {:fn (fn [component params]
-          (cycle-window-size! Direction.HEIGHT Direction.DESCENDING)
+          (cycle-window-size! (. direction-by-keyword params.direction)
+                              (. direction-by-keyword params.cycle-direction))
           nil)}))
 
 ;; ============================================================================
@@ -170,20 +109,12 @@
           (switch-to-space! params.index)
           nil)}))
 
-(local prev-space-command
+(local increment-space-command
   (make-command
-   :paper-wm.commands/prev-space
-   "Switch to the previous space"
+   :paper-wm.commands/increment-space
+   "Switch to an adjacent space"
    {:fn (fn [component params]
-          (increment-space! Direction.LEFT)
-          nil)}))
-
-(local next-space-command
-  (make-command
-   :paper-wm.commands/next-space
-   "Switch to the next space"
-   {:fn (fn [component params]
-          (increment-space! Direction.RIGHT)
+          (increment-space! (. direction-by-keyword params.direction))
           nil)}))
 
 ;; ============================================================================
@@ -216,25 +147,15 @@
    {:fn (fn [component params]
           {:pending-window-id nil})}))
 
-{: focus-left-command
- : focus-right-command
- : focus-up-command
- : focus-down-command
- : swap-left-command
- : swap-right-command
- : swap-up-command
- : swap-down-command
+{: focus-command
+ : swap-command
  : center-window-command
  : set-full-width-command
- : cycle-width-up-command
- : cycle-width-down-command
- : cycle-height-up-command
- : cycle-height-down-command
+ : cycle-window-size-command
  : slurp-window-command
  : barf-window-command
  : switch-to-space-command
- : prev-space-command
- : next-space-command
+ : increment-space-command
  : refresh-windows-command
  : set-pending-window-command
  : clear-pending-window-command}

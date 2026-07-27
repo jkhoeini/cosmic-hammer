@@ -21,25 +21,15 @@
         : upsert-window-command
         : remove-window-command
         : set-focused-window-command} (require :commands.window-state))
-(local {: focus-left-command
-        : focus-right-command
-        : focus-up-command
-        : focus-down-command
-        : swap-left-command
-        : swap-right-command
-        : swap-up-command
-        : swap-down-command
+(local {: focus-command
+        : swap-command
         : center-window-command
         : set-full-width-command
-        : cycle-width-up-command
-        : cycle-width-down-command
-        : cycle-height-up-command
-        : cycle-height-down-command
+        : cycle-window-size-command
         : slurp-window-command
         : barf-window-command
         : switch-to-space-command
-        : prev-space-command
-        : next-space-command
+        : increment-space-command
         : refresh-windows-command
         : set-pending-window-command
         : clear-pending-window-command} (require :commands.paper-wm))
@@ -62,25 +52,15 @@
 (add-command! command-registry upsert-window-command)
 (add-command! command-registry remove-window-command)
 (add-command! command-registry set-focused-window-command)
-(add-command! command-registry focus-left-command)
-(add-command! command-registry focus-right-command)
-(add-command! command-registry focus-up-command)
-(add-command! command-registry focus-down-command)
-(add-command! command-registry swap-left-command)
-(add-command! command-registry swap-right-command)
-(add-command! command-registry swap-up-command)
-(add-command! command-registry swap-down-command)
+(add-command! command-registry focus-command)
+(add-command! command-registry swap-command)
 (add-command! command-registry center-window-command)
 (add-command! command-registry set-full-width-command)
-(add-command! command-registry cycle-width-up-command)
-(add-command! command-registry cycle-width-down-command)
-(add-command! command-registry cycle-height-up-command)
-(add-command! command-registry cycle-height-down-command)
+(add-command! command-registry cycle-window-size-command)
 (add-command! command-registry slurp-window-command)
 (add-command! command-registry barf-window-command)
 (add-command! command-registry switch-to-space-command)
-(add-command! command-registry prev-space-command)
-(add-command! command-registry next-space-command)
+(add-command! command-registry increment-space-command)
 (add-command! command-registry refresh-windows-command)
 (add-command! command-registry set-pending-window-command)
 (add-command! command-registry clear-pending-window-command)

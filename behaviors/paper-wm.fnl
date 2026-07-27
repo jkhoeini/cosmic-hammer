@@ -16,58 +16,28 @@
     :description description
     :respond-to [:event.kind.hotkey/pressed]
     :commands {cmd-alias cmd-name}
-    :fn (fn [event candidates send-cmd]
+    :fn (fn [event candidates send-cmd inputs params]
           (let [target (. (. candidates cmd-alias) 1)]
             (when target
-              (send-cmd target cmd-alias {}))))}))
+              (send-cmd target cmd-alias (or params {})))))}))
 
 ;; ============================================================================
 ;; Focus navigation
 ;; ============================================================================
 
-(local focus-left-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/focus-left
-                        "Focus window to the left"
-                        :focus-left :paper-wm.commands/focus-left))
-
-(local focus-right-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/focus-right
-                        "Focus window to the right"
-                        :focus-right :paper-wm.commands/focus-right))
-
-(local focus-up-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/focus-up
-                        "Focus window above"
-                        :focus-up :paper-wm.commands/focus-up))
-
-(local focus-down-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/focus-down
-                        "Focus window below"
-                        :focus-down :paper-wm.commands/focus-down))
+(local focus-behavior
+  (make-hotkey-behavior :paper-wm.behaviors/focus
+                        "Focus window in a direction"
+                        :focus :paper-wm.commands/focus))
 
 ;; ============================================================================
 ;; Swap
 ;; ============================================================================
 
-(local swap-left-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/swap-left
-                        "Swap focused window left"
-                        :swap-left :paper-wm.commands/swap-left))
-
-(local swap-right-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/swap-right
-                        "Swap focused window right"
-                        :swap-right :paper-wm.commands/swap-right))
-
-(local swap-up-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/swap-up
-                        "Swap focused window up"
-                        :swap-up :paper-wm.commands/swap-up))
-
-(local swap-down-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/swap-down
-                        "Swap focused window down"
-                        :swap-down :paper-wm.commands/swap-down))
+(local swap-behavior
+  (make-hotkey-behavior :paper-wm.behaviors/swap
+                        "Swap focused window in a direction"
+                        :swap :paper-wm.commands/swap))
 
 ;; ============================================================================
 ;; Window sizing
@@ -83,25 +53,10 @@
                         "Set focused window to full width"
                         :set-full-width :paper-wm.commands/set-full-width))
 
-(local cycle-width-up-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/cycle-width-up
-                        "Cycle focused window width up"
-                        :cycle-width-up :paper-wm.commands/cycle-width-up))
-
-(local cycle-width-down-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/cycle-width-down
-                        "Cycle focused window width down"
-                        :cycle-width-down :paper-wm.commands/cycle-width-down))
-
-(local cycle-height-up-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/cycle-height-up
-                        "Cycle focused window height up"
-                        :cycle-height-up :paper-wm.commands/cycle-height-up))
-
-(local cycle-height-down-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/cycle-height-down
-                        "Cycle focused window height down"
-                        :cycle-height-down :paper-wm.commands/cycle-height-down))
+(local cycle-window-size-behavior
+  (make-hotkey-behavior :paper-wm.behaviors/cycle-window-size
+                        "Cycle focused window size"
+                        :cycle-window-size :paper-wm.commands/cycle-window-size))
 
 ;; ============================================================================
 ;; Column manipulation
@@ -121,32 +76,25 @@
 ;; Space navigation
 ;; ============================================================================
 
-(local prev-space-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/prev-space
-                        "Switch to previous space"
-                        :prev-space :paper-wm.commands/prev-space))
-
-(local next-space-behavior
-  (make-hotkey-behavior :paper-wm.behaviors/next-space
-                        "Switch to next space"
-                        :next-space :paper-wm.commands/next-space))
+(local increment-space-behavior
+  (make-hotkey-behavior :paper-wm.behaviors/increment-space
+                        "Switch to an adjacent space"
+                        :increment-space :paper-wm.commands/increment-space))
 
 ;; ============================================================================
-;; Switch-to-space (9, generated in a loop)
+;; Switch-to-space
 ;; ============================================================================
 
-(local switch-to-space-behaviors {})
-(for [i 1 9]
-  (tset switch-to-space-behaviors i
-    (make-behavior
-     {:name (.. :paper-wm.behaviors/switch-to-space- (tostring i))
-      :description (.. "Switch to space " (tostring i))
-      :respond-to [:event.kind.hotkey/pressed]
-      :commands {:switch-to-space :paper-wm.commands/switch-to-space}
-      :fn (fn [event candidates send-cmd]
-            (let [target (. candidates.switch-to-space 1)]
-              (when target
-                (send-cmd target :switch-to-space {:index i}))))})))
+(local switch-to-space-behavior
+  (make-behavior
+   {:name :paper-wm.behaviors/switch-to-space
+    :description "Switch to a specific space"
+    :respond-to [:event.kind.hotkey/pressed]
+    :commands {:switch-to-space :paper-wm.commands/switch-to-space}
+    :fn (fn [event candidates send-cmd inputs params]
+          (let [target (. candidates.switch-to-space 1)]
+            (when target
+              (send-cmd target :switch-to-space {:index params.index}))))}))
 
 ;; ============================================================================
 ;; Screen change
@@ -163,23 +111,13 @@
             (when target
               (send-cmd target :refresh-windows {}))))}))
 
-{: focus-left-behavior
- : focus-right-behavior
- : focus-up-behavior
- : focus-down-behavior
- : swap-left-behavior
- : swap-right-behavior
- : swap-up-behavior
- : swap-down-behavior
+{: focus-behavior
+ : swap-behavior
  : center-window-behavior
  : set-full-width-behavior
- : cycle-width-up-behavior
- : cycle-width-down-behavior
- : cycle-height-up-behavior
- : cycle-height-down-behavior
+ : cycle-window-size-behavior
  : slurp-window-behavior
  : barf-window-behavior
- : prev-space-behavior
- : next-space-behavior
- : switch-to-space-behaviors
+ : increment-space-behavior
+ : switch-to-space-behavior
  : refresh-on-screen-change-behavior}

@@ -17,7 +17,8 @@
 ;;    :event-selector  :event.kind/something
 ;;    :source-tag  :tag/my-tag
 ;;    :target-tag  :tag/my-target
-;;    :input-tag   :tag/my-input}   ; optional — selects components for shaped inputs
+;;    :input-tag   :tag/my-input    ; optional — selects components for shaped inputs
+;;    :params      {:key "value"}} ; optional — static per-wiring configuration
 
 (local {: hash-set : conj : disj : into : seq} (require :lib.cljlib-shim))
 (local {: valid-event-selector?} (require :sheaf.event-registry))
@@ -129,7 +130,8 @@
      :event-selector  - event name or kind to match (required)
      :source-tag      - tag to match on source instances (required)
      :target-tag      - tag selecting command target components (required)
-     :input-tag       - tag selecting components for shaped inputs (optional)"
+     :input-tag       - tag selecting components for shaped inputs (optional)
+     :params          - static per-wiring configuration table (optional)"
   (validate-subscription! registry name opts)
   (let [subscription {:name name
                       :description opts.description
@@ -137,7 +139,8 @@
                       :event-selector opts.event-selector
                       :source-tag opts.source-tag
                       :target-tag opts.target-tag
-                      :input-tag opts.input-tag}]
+                      :input-tag opts.input-tag
+                      :params opts.params}]
     (tset registry.subscriptions name subscription)
     (index-add! registry subscription)
     (print (.. "[INFO] Defined subscription: " (tostring name)))))
@@ -175,7 +178,8 @@
   "Get matching subscription data for this source+event.
    Looks up the source instance's tags, then finds subscriptions for each tag
    and all ancestor event-selectors.
-   Returns [{:behavior name :target-tag tag :input-tag tag-or-nil} ...] or nil."
+   Returns [{:behavior name :target-tag tag :input-tag tag-or-nil
+             :params table-or-nil} ...] or nil."
   (let [tags (get-tags registry.tag-registry source-instance-name)
         event-selectors (conj (ancestors registry.event-registry.hierarchy event-name) event-name)
         all-sub-names (accumulate [result (hash-set)
@@ -191,7 +195,8 @@
           (when sub
             {:behavior sub.behavior
              :target-tag sub.target-tag
-             :input-tag sub.input-tag}))))))
+             :input-tag sub.input-tag
+             :params sub.params}))))))
 
 
 {: make-subscription-registry

@@ -22,12 +22,12 @@ The system should be:
 - *Debuggable* - can trace why something did or didn't trigger
 - *Queryable* - can inspect state (via SQLite, REPL, UI)
 
-* Projects [34/141]
-** PROJ Configuration as Data [12/30]
+* Projects [35/141]
+** PROJ Configuration as Data [13/30]
 Users define automations declaratively using data structures, not procedural code.
 Can serialize, validate, and inspect the entire config.
 
-*** LATER Milestone 3: Sheaf Core [6/14]
+*** LATER Milestone 3: Sheaf Core [7/14]
 Realize the Sheaf pattern: traits, components, tags, subscriptions, behaviors, dispatcher.
 Built incrementally — each phase is independently functional.
 
@@ -157,6 +157,28 @@ Built incrementally — each phase is independently functional.
       - [X] Ensure all subscriptions declare :target-tag
       - Depends on Phase 4 (tag routing) + Phase 2 (components)
 
+**** DONE [#A] Add :params to subscriptions (per-wiring configuration) [5/5] :architecture:feature:
+     Decision recorded in docs/adr/0002-subscription-params.md.
+     Subscriptions carry optional :params; dispatcher threads it to the
+     behavior fn as a 5th argument. Complementarity rule: inputs = shared,
+     live, many-reader facts (component state via input-tag + shape);
+     params = per-wiring, static, one-reader choices (frozen in the wiring).
+     Commands stay part of the behavior's effect type — not parameterizable;
+     runtime selection among declared commands is ordinary behavior logic.
+
+     - [X] subscription-registry: accept + store optional :params (plain table);
+           return it from get-matching-subscriptions
+     - [X] dispatcher: pass sub-params as 5th arg to behavior fn
+           (Lua ignores extra args — existing 4-arg behaviors unaffected)
+     - [X] Proving migration: collapse switch-to-space 9 behaviors → 1 behavior
+           + 9 parameterized subscriptions ({:index i} moves to the layer stratum)
+     - [X] Collapse paper-wm further: directional commands take params
+           (e.g. :paper-wm.commands/focus {:direction :left}); direction comes
+           from subscription params, NOT derived from event key data (would
+           couple rule to chord)
+     - [X] Verify: diff runtime registry contents before/after per the ratchet
+           (builder output indistinguishable from hand-written atoms)
+
 **** LATER [#C] Think of behavior dependency/priority/ordering strategies :architecture:
      - Define execution order when multiple behaviors match
      - Handle dependencies between behaviors
@@ -222,6 +244,57 @@ The entire system is a single declarative value — inspectable, serializable, r
 
 *** LATER Milestone 5: Modules [0/1]
 Higher-level bundles of components, behaviors, subscriptions, and config that provide a complete feature.
+
+**** LATER [#B] Definitions vs instantiations: modules provide, layers configure :architecture:
+     Ontological split discovered during keybinding-framework grilling (2026-07).
+     The trinity: component = state, event-source = event, behavior = reaction.
+     Each has a *definition* (timeless vocabulary) and *instantiations*
+     (configured occurrences). Two bundle mechanisms follow:
+     - Modules contribute definitions: events, traits, shapes, commands,
+       event-source types, component types, behaviors, hierarchy derivations
+     - Layers contribute instantiations: component instances (with config),
+       event-source instances (with config), subscriptions (with params),
+       tag attachments
+     Inventory notes:
+     - Hierarchy derivations are contributed facts (a module adding an event
+       must add its kind edges)
+     - Tags currently have NO definition mechanism (tag-registry only has
+       attach/detach/lookup) — tag definitions are a missing feature
+     - Third stratum beyond def/inst: runtime facts (event occurrences,
+       command sends, state changes) — TBox/ABox/assertions in RDF terms
+     Known category errors in current code (to fix when this lands):
+     - components/expose.fnl bakes {:mods [:ctrl :cmd] :key :e} (instance
+       config) into a type definition
+     - components/paper-wm.fnl bakes 27 concrete chords into a blueprint
+     - Requires: component-registry accepting instance-level source configs
+       (separate slice from the subscription-params work)
+     Effect-TS parallels (partial, useful):
+     - Sheaf tag ≈ Effect Context.Tag but deliberately un-fused: tag = role
+       selection (0..n, runtime-mutable), trait/shape = contract. Debt: no
+       totality guarantee — repay at assembly time, not compile time
+     - Module/layer assembly ≈ Effect Layer: merge :provides, check every
+       :requires against the union → system map total-or-fails-at-boot;
+       shared provisions instantiated once (memoization analog)
+     - Static map > constructor function: construction is already reified as
+       component-type start-fns in the registry; provides reference blueprints
+       by name; cross-module construction-time deps are symbolic refs
+       (Integrant #ig/ref style) resolved by the assembler
+
+**** LATER [#C] Behavior command slots (bind at subscription time) :architecture:
+     Idea parked during the params discussion — needs big rethinking of how
+     things fit together, revisit when modules force it (or drop if they don't).
+     - Behavior definitions declare *slots* (aliases only, e.g. :slots [:send]);
+       subscriptions *bind* slots to concrete commands + default params
+     - Command-reference validation would move to add-subscription! time;
+       build-candidates would resolve command names from the subscription binding
+     - A definition with unbound slots is visibly incomplete until a layer
+       binds it — same move as Effect Layer requirements
+     - What only slots give (vs params + runtime selection): reusing one
+       behavior definition against *different command vocabularies* — a
+       modules-era need
+     - Tension to resolve: commands are part of the behavior's effect type
+       (ADR-0002 says not parameterizable) — slots would need to reconcile
+       with that ruling
 
 **** LATER [#B] Define module concept                                  :architecture:
      - A module bundles related components + behaviors + subscriptions + default config
@@ -427,7 +500,7 @@ and a local Grafana LGTM stack (Tempo/Loki/Prometheus) for verification.
     - [ ] Dispatcher creates spans/events for subscription matching and behavior invocation
     - [ ] Candidate resolution records candidate counts per command alias
     - [ ] Input shape resolution records matched/missing input aliases without dumping raw state
-    - [ ] Existing behavior function signature remains =(fn [event candidates send-cmd inputs])=
+    - [ ] Existing handlers remain source-compatible with canonical =(fn [event candidates send-cmd inputs params])=
     - [ ] Tempo query can find the behavior invoked by a window-border focus event
 
 *** LATER [#A] Trace command execution outcomes                          :tooling:
@@ -977,6 +1050,54 @@ Architectural decisions that must be resolved before implementation.
            (async chooser callback result not capturable in the synchronous
            command model — would require a new event for chooser selection)
      - [ ] Depends on: record command and behavior working
+
+** PROJ Doom-style Keybinding Framework [0/4]
+Higher-level abstraction for hotkeys: leader key (opt+spc), which-key UI,
+layered prefixes (e.g. "opt+spc o e" = open expose), command palette
+(opt+spc spc), map!-like declaration DSL. Vision recorded during grilling
+session 2026-07; deliberately built slowly, bit by bit, guided by principles.
+Governing constraints agreed so far:
+- The framework is a *layer over* Sheaf atoms, never an engine change;
+  everything it generates must be hand-writable in today's atoms (the ratchet)
+- map! (or equivalent) is a pure builder: spec-data → atom-data; no hidden
+  execution; runtime only ever sees atoms
+- Bindings carry mandatory :desc from day one — the seed of which-key
+  (descriptions become queryable facts; avoids retrofitting 30+ bindings)
+- Command palette = a *query* over the command graph, not a new registry
+- Prefixes are transient keymaps (Emacs-style), not a global key-stream trie;
+  hs.hotkey.modal is the native mechanism candidate
+- A behavior invocation never outlives its event (ADR-0001); long interactions
+  are *conversations*: chains of invocations linked by events (each keypress
+  in a prefix sequence = its own invocation advancing keymap state)
+
+*** LATER [#B] Decide keymap mechanism :architecture:
+    Parked as premature. Candidate rejected as unnatural: modes as dynamic
+    tag-assignment (files fast-changing facts into wiring structure —
+    category error; tags are structure, active-prefix-path is fact).
+    Leading candidate: keymap component whose state holds the keymap trie +
+    current prefix path; owns an hs.hotkey.modal source; which-key UI is a
+    separate component consuming keymap state as a shaped input.
+    Still open: instead of a tailor-made doom-style keymap component, a
+    generic keymap foundation (components + events + subscriptions) that
+    layers configure into doom-like behavior. Revisit after modules/layers.
+
+*** LATER [#B] Binding declaration builder :feature:
+    Blocked on: subscription :params (Milestone 3 item) and the modules/layers
+    split — first proposal (make-bindings generating per-binding
+    sources/behaviors/subscriptions) was rejected for exploding atoms;
+    correct shape: few central parameterized behaviors + per-binding
+    subscriptions with params + source instance configs in the layer stratum.
+
+*** LATER [#C] which-key UI component :feature:
+    Renders whatever keymap state says; wired by subscription, consuming
+    keymap state as shaped input. Context-blind per locality principle.
+    Depends on: keymap mechanism decision.
+
+*** LATER [#C] Command palette (opt+spc spc) :feature:
+    Queries the command graph (P1: palette is a query, not a registry).
+    Open question: target resolution — a Sheaf command needs a target
+    component; palette must resolve (command, target) pairs.
+    Depends on: keymap mechanism, binding builder.
 
 ** PROJ Window Management [0/7]
 Selected features from the deleted windows.fnl, reimplemented as Sheaf commands.
