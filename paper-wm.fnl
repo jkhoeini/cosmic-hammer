@@ -51,12 +51,14 @@
 ;; window-list: 3D table indexed by [space][column][row] -> window objects
 ;; index-table: window-id -> {:space <id> :col <n> :row <n>}
 ;; ui-watchers: window-id -> hs.uielement.watcher
+;; watcher-restart-timers: window-id -> hs.timer
 ;; window-filter: hs.window.filter instance (created on start!)
 
 (var window-list {})
 (var index-table {})
 (var ui-watchers {})
 (var focused-window nil)
+(var watcher-restart-timers {})
 (var pending-window nil)
 (var window-filter nil)
 
@@ -116,17 +118,28 @@
 (fn move-window! [window frame]
   "Move and resize a window. Disables watchers during the move."
   (let [padding 0.02
-        watcher (. ui-watchers (window:id))]
+        id (window:id)
+        watcher (. ui-watchers id)]
     (when (not watcher)
       (logger.e "window does not have ui watcher")
       (lua "return"))
     (when (= frame (window:frame))
       (logger.v "no change in window frame")
       (lua "return"))
+    ;; cancel pending restart from a previous move of this window
+    (let [pending (. watcher-restart-timers id)]
+      (when pending
+        (pending:stop)))
     (watcher:stop)
     (window:setFrame frame)
-    (Timer.doAfter (+ Window.animationDuration padding)
-                   #(watcher:start [Watcher.windowMoved Watcher.windowResized]))))
+    (tset watcher-restart-timers id
+          (Timer.doAfter (+ Window.animationDuration padding)
+                         (fn []
+                           (tset watcher-restart-timers id nil)
+                           ;; fetch fresh: watcher may have been torn down
+                           (let [w (. ui-watchers id)]
+                             (when w
+                               (w:start [Watcher.windowMoved Watcher.windowResized]))))))))
 
 (fn tile-column! [windows bounds h w id h4id]
   "Tile a column of windows by moving and resizing.
@@ -155,7 +168,7 @@
     (move-window! last-window frame))
   col-width)
 
-(fn tile-space! [space]
+(fn tile-space! [space ?anchor-frame-override]
   "Tile all columns in a space by moving and resizing windows."
   (when (or (not space) (not= (Spaces.spaceType space) :user))
     (logger.e "current space invalid")
@@ -179,7 +192,7 @@
               left-margin (+ screen-frame.x config.screen-margin)
               right-margin (- screen-frame.x2 config.screen-margin)
               canvas (get-canvas screen)
-              anchor-frame (anchor-window:frame)]
+              anchor-frame (or ?anchor-frame-override (anchor-window:frame))]
           ;; clamp anchor to canvas
           (set anchor-frame.x (math.max anchor-frame.x canvas.x))
           (set anchor-frame.w (math.min anchor-frame.w canvas.w))
@@ -282,9 +295,13 @@
                     remove-index.row)
       (when (= (length (. window-list remove-index.space remove-index.col)) 0)
         (table.remove (. window-list remove-index.space) remove-index.col))
-      ;; remove watcher
+      ;; remove watcher and any pending restart timer
       (: (. ui-watchers (remove-win:id)) :stop)
       (tset ui-watchers (remove-win:id) nil)
+      (let [timer (. watcher-restart-timers (remove-win:id))]
+        (when timer
+          (timer:stop)))
+      (tset watcher-restart-timers (remove-win:id) nil)
       ;; update index-table
       (tset index-table (remove-win:id) nil)
       (update-index-table! remove-index.space remove-index.col)
@@ -420,6 +437,7 @@
       (when (not fi)
         (logger.e "focused index not found")
         (lua "return"))
+      (var anchor-frame nil)
       (if (or (= direction Direction.LEFT) (= direction Direction.RIGHT))
           (let [target-col (+ fi.col direction)
                 target-column (get-column fi.space target-col)]
@@ -454,7 +472,8 @@
                 (each [_ window (ipairs focused-column)]
                   (let [frame (window:frame)]
                     (set frame.x focused-frame.x)
-                    (move-window! window frame))))))
+                    (move-window! window frame)))
+              (set anchor-frame focused-frame))))
           (or (= direction Direction.UP) (= direction Direction.DOWN))
           (let [target-row (+ fi.row (math.floor (/ direction 2)))
                 target-window (get-window fi.space fi.col target-row)]
@@ -479,8 +498,9 @@
                     (set target-frame.y focused-frame.y)
                     (set focused-frame.y (+ target-frame.y2 config.window-gap))))
               (move-window! fw focused-frame)
-              (move-window! target-window target-frame))))
-      (tile-space! fi.space))))
+              (move-window! target-window target-frame)
+              (set anchor-frame focused-frame))))
+      (tile-space! fi.space anchor-frame))))
 
 ;; --- Window sizing ---
 
@@ -494,8 +514,7 @@
           sf (: (fw:screen) :frame)]
       (set frame.x (- (+ sf.x (math.floor (/ sf.w 2)))
                       (math.floor (/ frame.w 2))))
-      (move-window! fw frame)
-      (tile-space! (. (Spaces.windowSpaces fw) 1)))))
+      (tile-space! (. (Spaces.windowSpaces fw) 1) frame))))
 
 (fn set-window-full-width! []
   "Set the focused window to the full width of the screen."
@@ -507,8 +526,7 @@
           frame (fw:frame)]
       (set frame.x canvas.x)
       (set frame.w canvas.w)
-      (move-window! fw frame)
-      (tile-space! (. (Spaces.windowSpaces fw) 1)))))
+      (tile-space! (. (Spaces.windowSpaces fw) 1) frame))))
 
 (fn cycle-window-size! [direction cycle-direction]
   "Cycle the width or height of the focused window through window-ratios."
@@ -554,8 +572,7 @@
           (do
             (logger.e "invalid direction for cycle")
             (lua "return")))
-      (move-window! fw frame)
-      (tile-space! (. (Spaces.windowSpaces fw) 1)))))
+      (tile-space! (. (Spaces.windowSpaces fw) 1) frame))))
 
 ;; --- Column manipulation ---
 
@@ -584,6 +601,11 @@
                 {:space fi.space :col (- fi.col 1) :row num-windows})
           (update-index-table! fi.space fi.col)
           ;; retile the column
+;; TODO: slurp-window! has the same read-after-async-write race as
+;; cycle-window-size! — tile-column! moves the focused window (async),
+;; then tile-space! reads its frame back mid-animation. Fix requires
+;; tile-column! to return computed frames so the intended anchor frame
+;; can be passed as an override to tile-space!.
           (let [canvas (get-canvas (fw:screen))
                 bounds {:x (. (: (. column 1) :frame) :x) :x2 nil
                         :y canvas.y :y2 canvas.y2}
@@ -622,9 +644,8 @@
           (set frame.y canvas.y)
           (set frame.x (+ frame.x2 config.window-gap))
           (set frame.h canvas.h)
-          (move-window! fw frame)
           (tile-column! column bounds h)
-          (tile-space! fi.space))))))
+          (tile-space! fi.space frame))))))
 
 ;; --- Space navigation ---
 
@@ -689,6 +710,7 @@
   (set window-list {})
   (set index-table {})
   (set ui-watchers {})
+  (set watcher-restart-timers {})
   ;; create window filter
   (set window-filter
        (: (WindowFilter.new) :setOverrideFilter
@@ -715,6 +737,9 @@
     (window-filter:unsubscribeAll))
   (each [_ watcher (pairs ui-watchers)]
     (watcher:stop))
+  (each [_ timer (pairs watcher-restart-timers)]
+    (timer:stop))
+  (set watcher-restart-timers {})
 )
 
 ;; ---------------------------------------------------------------------------
