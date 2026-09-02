@@ -1,0 +1,376 @@
+#+title: Ideas
+
+* Status
+
+This is a working design and refactoring draft, not an approved implementation
+plan. It preserves the conclusions reached during the Sheaf/keybinding design
+sessions while keeping unresolved choices visible.
+
+The intended implementation strategy is incremental:
+
+1. introduce a compatibility path;
+2. migrate Expose as the smallest vertical slice;
+3. migrate URL routing to stress multiple dependencies;
+4. migrate PaperWM to stress scale and universes;
+5. remove the obsolete path only after behavior is preserved.
+
+* Working ontology
+
+** Spec
+
+Traits and shapes are two stages of an embryonic spec language:
+
+- a trait is an atomic named state spec;
+- a shape is a Boolean composition of traits.
+
+They are not fundamental Sheaf concepts. Move them out of =sheaf/= and replace
+them with one Malli/Clojure-Spec-inspired language used for:
+
+- component config and state;
+- occurrence payloads;
+- behavior arguments;
+- Eff arguments, results, and target capabilities;
+- subscription query results and projections.
+
+Specs establish *suitability*: whether a value/entity has the required
+structure. Specs should be inert data interpreted by a small validator.
+
+** Component
+
+A component is the state-bearing runtime boundary. It may expose:
+
+- a current state snapshot;
+- occurrences or changes over time;
+- capabilities implemented through Eff handlers.
+
+The current event-source concept should be absorbed into components. A hotkey,
+window watcher, URL handler, or timer is a component backed by an external
+callback; an ordinary in-memory model is a component backed by local state.
+
+Do not prematurely require that everything be implemented as a raw stream. A
+snapshot plus a change/occurrence feed may provide both pull and push views
+without importing stream concerns such as replay and backpressure.
+
+** Eff
+
+=Eff= means *atomic effect*. It replaces the overloaded current term =Command=.
+The short name is intentionally domain-specific; reserve =Aff= as a possible
+future name for explicitly asynchronous effects.
+
+An Eff is one primitive capability exposed by one component boundary. It has:
+
+- a name and description;
+- an argument spec;
+- a target/capability spec;
+- a handler/interpreter implementation;
+- optionally a result spec.
+
+An Eff request is inert data:
+
+#+begin_src fennel
+{:eff :expose.effs/toggle
+ :target entity-id
+ :args {}}
+#+end_src
+
+“Atomic” means indivisible from the behavior language's perspective, not one
+machine instruction. An Eff should not contain cross-component policy or
+orchestration.
+
+External Eff execution expresses intent; it does not necessarily establish
+external truth. An OS watcher may later publish the authoritative observation.
+Eff execution remains synchronous for now because Hammerspoon cannot reliably
+yield coroutines across its C/Obj-C callback boundary (ADR-0001).
+
+** Behavior
+
+A behavior is an omniversal intention. It is not reactive, does not belong to a
+universe, and has no instance/config form.
+
+A behavior contains:
+
+- name;
+- description;
+- argument spec;
+- declared Eff aliases (its effect signature);
+- a function implementing one meaningful intention.
+
+Conceptually:
+
+#+begin_example
+Behavior : Args -> Program Eff
+#+end_example
+
+A behavior does not know where its arguments came from. A URL extracted from an
+occurrence and a direction supplied as a literal are both simply values after
+they cross the behavior boundary. This is *provenance erasure*:
+
+#+begin_example
+literal values ---------+
+occurrence fields -------+
+queried current state ---+--> projection --> behavior arguments
+entity identities -------+
+#+end_example
+
+The size boundary is semantic rather than syntactic: one behavior implements
+one intention. It may coordinate one Eff or many. A one-Eff behavior such as
+=toggle Expose= is a valid degenerate workflow because it provides a stable,
+mechanism-independent intention that keyboard, voice, HTTP, tests, REPL, or a
+command palette may all invoke.
+
+Reuse should normally come from pure functions, data-driven policy, specs, and
+Effs—not from splitting one intention into tiny event-specific behaviors.
+
+** Subscription
+
+A subscription is the contextual/reactive half of the original
+Behavior/Subscription split. It is a declarative reactive query, projection,
+and behavior invocation:
+
+#+begin_example
+Subscription : Delta Universe x Snapshot -> Maybe BehaviorArgs
+#+end_example
+
+A subscription declares:
+
+- its universe;
+- named query clauses;
+- a spec and cardinality for each clause;
+- which clauses are reactive triggers;
+- a structural projection from query results/literals to behavior arguments;
+- the behavior to invoke.
+
+Source, input, target, and params cease to be separate mechanisms:
+
+- a former source is a reactive query clause;
+- a former input is a sampled query clause;
+- a former target is an entity identity projected from a structural query;
+- a former param is a literal in the projection.
+
+Reactivity therefore belongs to subscriptions, not behaviors. All clauses are
+resolved against one coherent snapshot when a reactive clause changes.
+Cardinality must be explicit (=:one=, =:optional=, or =:many=); the current
+“take the first candidate” behavior is nondeterministic and should disappear.
+
+Keep projection deliberately weak and declarative: literals, field/path lookup,
+entity identity, rename, collection, and simple defaults. Parsing, branching,
+routing policy, and other domain judgment belong in the behavior; otherwise
+projection becomes a second behavior language.
+
+** Universe
+
+A universe is a domain of discourse. It replaces the current endpoint-selector
+meaning of tags.
+
+Universes contain:
+
+- component instances;
+- subscriptions.
+
+Behavior definitions are omniversal and are not members. A subscription queries
+only component entities in its universe, then uses specs to select suitable
+values/providers:
+
+#+begin_example
+universe establishes relevance
+spec establishes suitability
+#+end_example
+
+This recovers the useful LightTable BOT / Emacs minor-mode idea. For example,
+=:universe/paper-wm= contains the participating components and all subscriptions
+that constitute PaperWM. Activating or inspecting that universe enables or
+shows the feature as a whole. One meaningful universe replaces the current
+one-tag-per-hotkey and one-tag-per-target noise.
+
+Universe membership, overlap/composition, activation, lifecycle, and inspection
+still need concrete semantics.
+
+** Occurrence and time
+
+Event sources may disappear, and Event may disappear as a separate registry
+atom, but occurrence semantics cannot disappear. Two identical keypresses must
+still trigger twice; each occurrence therefore needs identity/time even when it
+does not change a current value.
+
+A promising directional model is:
+
+- immutable/current snapshot for queries;
+- transaction/change report for reactivity;
+- semantic kind/discriminator plus a spec for occurrence data;
+- asynchronous outcomes re-enter as later occurrences rather than suspending a
+  behavior invocation.
+
+Whether this becomes a full temporal database is still open.
+
+** Modules, layers, and system map
+
+The definition/instance distinction remains useful, but there is no behavior
+instance:
+
+- modules contribute definitions: named specs, component types, behaviors,
+  Effs, and any justified hierarchy facts;
+- layers contribute configured component instances, subscriptions, universe
+  membership, and other assembly data.
+
+Prefer static maps over constructor functions. An assembler interprets the
+maps, resolves symbolic references, merges provides/requires, validates specs
+and cardinality, and either produces a total system map or fails before startup.
+
+* Evidence from the current code
+
+There are 26 registered behaviors. Only two currently contain substantial
+intention-level computation:
+
+- URL routing: parse, match rules, resolve browser policy, choose/fallback, and
+  coordinate open/chooser Effs;
+- space-indicator update: compute global active-space indices and request the
+  display update.
+
+The other 24 mostly extract/filter occurrence data, choose the first target,
+and invoke one command. Their occurrence matching and structural projection
+belong in subscriptions; their mechanism-independent intention may remain as a
+small behavior.
+
+The behavior layer is also thin because orchestration has leaked into commands:
+
+- PaperWM commands wrap large global functions and ignore their injected
+  component;
+- =show-chooser= both presents UI and later opens the selected URL inside its
+  callback.
+
+Renaming Command to Eff must therefore include an atomicity audit, not merely a
+symbol rename. Cross-component policy moves upward into behaviors; primitive
+component capabilities remain Effs.
+
+* Draft refactoring project
+
+** PROJ Sheaf as an intentional information system [0/10]
+
+Refactor Sheaf around components, specs, Effs, omniversal behaviors,
+universe-scoped subscriptions, and data-driven assembly while preserving all
+current automation after every milestone.
+
+*** LATER Milestone 1: Replace traits and shapes with a minimal spec language [0/6]
+
+- [ ] Characterize current trait predicates and shape AND/OR conformance.
+- [ ] Add a minimal spec implementation outside =sheaf/=.
+- [ ] Port every trait and shape to named specs.
+- [ ] Migrate component state validation and Eff target requirements.
+- [ ] Migrate behavior input validation without changing dispatch semantics.
+- [ ] Remove trait/shape registries and the unused trait hierarchy.
+
+*** LATER Milestone 2: Split DESIGN.md into focused documentation [0/5]
+
+- [ ] Rename the root architecture document to =sheaf.md= and keep it
+      ontological rather than API-specific.
+- [ ] Move spec documentation beside the spec implementation.
+- [ ] Move hierarchy documentation beside =lib/hierarchy=.
+- [ ] Move component, behavior, subscription, and Eff details beside their
+      implementations.
+- [ ] Reconcile =CONTEXT.md= and ADRs; preserve history and mark superseded
+      terminology explicitly.
+
+*** LATER Milestone 3: Expand the spec language and use it everywhere [0/6]
+
+- [ ] Add serializable primitives, maps, vectors, tuples, enums, optional values,
+      AND, OR, and named references.
+- [ ] Implement =validate=, =conform=, and path-aware =explain=.
+- [ ] Keep opaque predicates as an explicit escape hatch.
+- [ ] Apply specs to component config/state and occurrence payloads.
+- [ ] Apply specs to behavior args and Eff target/args/results.
+- [ ] Apply specs to subscription query clauses and projected arguments.
+
+*** LATER Milestone 4: Replace event sources with reactive components [0/7]
+
+- [ ] Define component snapshot, occurrence publication, lifecycle, and ordering.
+- [ ] Preserve identity for repeated equal occurrences.
+- [ ] Add a compatibility bridge from component occurrences to current events.
+- [ ] Migrate hotkeys first, then window/app/screen/space/path/URL callbacks.
+- [ ] Move callback/source config from component types to layer instances.
+- [ ] Remove owned-source declarations and source lifecycle machinery.
+- [ ] Remove source types, instances, and source registry after migration.
+
+*** LATER Milestone 5: Rename Command to Eff and enforce atomicity [0/7]
+
+- [ ] Introduce Eff definitions, requests, registry, and interpreter vocabulary.
+- [ ] Give Effs target, argument, and optional result specs.
+- [ ] Preserve synchronous interpretation and command tracing during migration.
+- [ ] Audit every command against the one-component-capability boundary.
+- [ ] Move hidden PaperWM orchestration into behaviors and expose lower-level
+      component Effs where necessary.
+- [ ] Split asynchronous chooser workflow from primitive chooser/open Effs.
+- [ ] Remove Command compatibility names only after all content is migrated.
+
+*** LATER Milestone 6: Make behaviors omniversal intentions [0/6]
+
+- [ ] Replace event/candidates/inputs/params handler signatures with one
+      spec-validated argument value plus Eff interpretation capability.
+- [ ] Retain explicit declared Eff aliases as the behavior effect signature.
+- [ ] Remove =respond-to= and all universe/source knowledge from behaviors.
+- [ ] Add a direct invocation API for tests, REPL, palette, HTTP, and bindings.
+- [ ] Migrate URL routing and space indicator as genuine workflows.
+- [ ] Migrate one-Eff intentions without folding them into Effs.
+
+*** LATER Milestone 7: Turn subscriptions into declarative reactive queries [0/8]
+
+- [ ] Define query clauses with spec, cardinality, and reactive/sample mode.
+- [ ] Resolve all clauses against one coherent component snapshot.
+- [ ] Define a deliberately small data projection language.
+- [ ] Validate projected values against the invoked behavior's argument spec.
+- [ ] Represent current subscription params as projection literals.
+- [ ] Represent targets as structurally queried entity identities.
+- [ ] Remove source/input/target special cases and first-candidate selection.
+- [ ] Migrate Expose, URL routing, window state, then PaperWM.
+
+*** LATER Milestone 8: Replace tags with universes [0/7]
+
+- [ ] Define membership for component instances and subscriptions.
+- [ ] Define activation/deactivation and subscription lifecycle.
+- [ ] Decide overlap, union/intersection, and precedence semantics.
+- [ ] Rename tag registry, APIs, telemetry, and documentation to universe.
+- [ ] Scope subscription queries to their universe.
+- [ ] Migrate PaperWM to one inspectable feature universe.
+- [ ] Remove singleton endpoint tags and obsolete tag-based TODOs.
+
+*** LATER Milestone 9: Reassess Event as a core concept [0/6]
+
+- [ ] Define an occurrence/change envelope with identity, time, entity, kind,
+      payload, and cause where available.
+- [ ] Decide snapshot plus transaction-report semantics.
+- [ ] Represent event definitions as named specs/discriminated data where viable.
+- [ ] Preserve repeated equal occurrences and async re-entry (ADR-0001).
+- [ ] Decide whether event hierarchy, event registry, and event loop survive.
+- [ ] Avoid claiming external state changes before authoritative observation.
+
+*** LATER Milestone 10: Assemble modules, layers, and the system map [0/7]
+
+- [ ] Define modules as static maps of definitions.
+- [ ] Define layers as static maps of component instances, subscriptions, config,
+      and universe memberships.
+- [ ] Express provides/requires and symbolic references as data.
+- [ ] Validate spec compatibility and query cardinality before startup.
+- [ ] Instantiate shared provisions once and produce an inspectable system map.
+- [ ] Make feature universes/layers activatable and inspectable.
+- [ ] Revisit the Doom keybinding framework on this foundation.
+
+* Constraints and open questions
+
+** Preserved constraints
+
+- Data is preferred over functions; opaque code is isolated behind interpreters.
+- A higher-level builder must expand into hand-writable lower-level data.
+- Commands/Effs execute synchronously; async outcomes are later occurrences.
+- Behaviors declare the Effs they may invoke; subscriptions cannot substitute a
+  different effect vocabulary.
+- No runtime query may silently choose the first result for a singular need.
+- External intent and external observed truth remain distinct.
+
+** Open questions
+
+- Exact Eff request/result API and whether =Aff= later denotes async effects.
+- How a behavior observes a prior Eff result during one synchronous invocation.
+- Minimum useful declarative projection language for subscriptions.
+- Universe overlap/composition and activation semantics.
+- Whether occurrences require a temporal database or only a queue plus snapshot.
+- Transaction commit/failure semantics across multiple Effs.
+- Exact static shape of modules, layers, provides, and requires.
